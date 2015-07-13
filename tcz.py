@@ -28,6 +28,12 @@
 
 # iptables -A OUTPUT -p tcp --tcp-flags RST RST -s 127.0.0.1 -j DROP
 
+# Another important point from the Scapy FAQ:
+# in case this script is used locally (to try on a local environment
+# the sequence first, for example) we need to comunicate to 
+# Scapy that we want to use a PF_INET socket instead of a PF_PACKET
+
+# conf.L3socket = L3RawSocket
 
 from scapy.all import *
 import random 
