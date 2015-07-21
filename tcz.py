@@ -39,6 +39,16 @@ from scapy.all import *
 import random 
 import time
 
+# TODO GENERAL: In order to consider also packets that are sent while not listening, 
+# I should refactor and base the implementation on the AUTOMATA object. 
+# The TCP_client implementation already available in Scapy is not OK because does not provide
+# control on the single packets, for example ACK could not be delayed or skipped at all.
+#
+# I am considering to either extend the TCP_client implementation or proceed
+# with this class and include internally a AUTOMATA for which the values of SEQ and ACK
+# can be accessed and modified, and delay on single packets can be created
+
+
 # in case this program is used in localhost we need to change the
 # socket configuration with the following command
 conf.L3socket=L3RawSocket
@@ -49,9 +59,11 @@ class TCPConnection(object):
 	"""As far as I understand this is a comment :)
 	"""
 	# mandatory parameters are only destination address and port
-	# TODO For some reason randint() restiruisce sempre lo stesso valore se chiamata in __init__
+	# TODO For some reason randint() restituisce sempre lo stesso valore se chiamata in __init__
 	# ma funziona bene se nel "main" la chiamo quando invoco il costruttore...
-	def __init__(self, dAdd, dPort, sAdd = "127.0.0.1", sPort = random.randint(1024,65535)):
+	# Forse dovrei rimuoverlo come valore di default e limitarmi a chiamarlo quando 
+	# inizializzo l'instanza. Ora lo faccio
+	def __init__(self, dAdd, dPort, sAdd = "127.0.0.1", sPort = 12345):
 		self.srcIp = sAdd
 		self.dstIp = dAdd
 		self.srcPort = sPort
