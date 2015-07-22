@@ -3,6 +3,21 @@
 # TCZee - Scapy-based TCP stack basic implementation for network testing 
 # Copyright (C) 2014 Marco Zunino
 
+# The main purpose of this library is to provide the base for a 
+# complete internet testing tool that will allow to check network 
+# stack on IoT products with special attention on 
+#
+#	- Error condition (reproduce delay, malformed packets, error conditions,
+#	  application level error, protocol errors and so on)
+#
+#	- Standard compliance at transport layer (TCP selective ACK, TCP timestamps)	
+#	  network layer (malformed packet, wrong chksum etc) and application layer 
+#	  (HTTP special Headers mechanism, HTTP error, new features etc)
+#	 
+#	- Security check (verify product response to overflow due to unexpected values
+#	  in the protocol field, DoS attack and other robstness testing)
+
+
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # version 2 as published by the Free Software Foundation
