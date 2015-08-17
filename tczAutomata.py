@@ -22,7 +22,7 @@ class TCPConnection(object):
 	like for example keep control on the ACK sent as reply after receiving a packet, in this implementation
 	is possible to delay or completely skip these packets """
 
-	def __init__(self, dAdd, dPort, sAdd = "127.0.0.1", sPort = 12354):
+	def __init__(self, dAdd, dPort, sAdd = "312.23.43.2", sPort = 12354):
 		self.srcIp = sAdd
 		self.dstIp = dAdd
 		self.srcPort = sPort
@@ -37,24 +37,22 @@ class TCPConnection(object):
 		print "\n\t[DEBUG]  after instance creation"
 
 
-		print "\n\t[DEBUG]  Trying to send some data directly after creation, boia faust!!"
-		self.tcpAuto.send("Ginger11111")
+		#print "\n\t[DEBUG]  Trying to send some data directly after creation, boia faust!!"
+		#self.tcpAuto.send("Ginger11111")
 
 	def sendt(self, payload):
 		print "\n\t[DEBUG]  about to send the payload with the wrapper"
 		self.tcpAuto.send(payload) 
 
+# Try to use google address this tiem
+#ginger = TCPConnection("216.58.209.100", 80)
+#print "\t\n[DEBUG]  After completing call to create instance"
 
-conf.L3socket=L3RawSocket
-
-ginger = TCPConnection("127.0.0.1", 6666)
-print "\t\n[DEBUG]  After completing call to create instance"
-
-ginger.sendt("Piciu")
-print "\t\n[DEBUG]  Dopo aver inviato i dati con il wrapper"
+#ginger.sendt("Piciu")
+#print "\t\n[DEBUG]  Dopo aver inviato i dati con il wrapper"
 
 # Trying here to send directly without using the TCPConnection obkect
-t = TCP_client.tcplink(Raw, "127.0.0.1", 6665)
+t = TCP_client.tcplink(Raw, "79.209.203.90", 31331)
 t.send("Puttana di Eva!!!")
 
 
