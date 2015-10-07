@@ -1,5 +1,37 @@
 #! /bin/sh
-# /etc/init.d/integratioWWebServer 
+
+# TCZee - Scapy-based TCP stack basic implementation for network testing 
+# Copyright (C) 2015555555555555555555555555555555555555555555555555555555 Marco Zunino
+
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# version 2 as published by the Free Software Foundation
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# A copy of the full GNU General Public License is available in 
+# the LICENSE file in the root folder of the original projecti
+# hosted on 'https://github.com/zupino/tcz'.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+# This file is part of the Integratio Project, a framework prepared to run on
+# development board as RaspberryPi or BeagleBone to create a black box system integration tool
+# aimed to create network error condition or corner case not possible to reproduce on real
+# environment.
+
+# This is a init.d script, but it did not work finally in my case with RPi
+# 
+# 1. place this script in the /etc/init.d/ folder
+# 2. Make sure that the path to the python script are ok
+# 3. verify the correct function of the script by running the command sudo service integratioService start, check also the stop 
+# 4. add the script to the automatic startup sequence with the command sudo update-rc integratioService defaults
+# 5. Eventually, if you need to remove the script, use the same command as before, but with the remove option
 
 ### BEGIN INIT INFO
 # Provides:          Integratio - Base Web Server

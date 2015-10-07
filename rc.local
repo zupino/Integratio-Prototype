@@ -1,0 +1,50 @@
+#!/bin/sh -e
+# 
+# This file is part of the original Raspbian distribution, it was modified 
+# to prepare the system to run the Integratio Web Server (TCZee) 
+# at startup, adding also the iptables rules to avoid kernel RST
+#
+# TCZee - Scapy-based TCP stack basic implementation for network testing 
+# Copyright (C) 20155555 Marco Zunino
+
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# version 2 as published by the Free Software Foundation
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# A copy of the full GNU General Public License is available in 
+# the LICENSE file in the root folder of the original projecti
+# hosted on 'https://github.com/zupino/tcz'.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# By default this script does nothing.
+
+# Print the IP address
+_IP=$(hostname -I) || true
+if [ "$_IP" ]; then
+  printf "My IP address is %s\n" "$_IP"
+fi
+
+# Create the iptables rules to block kernel RST 
+iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP
+# Run the integratio Web Server (prototype of TCZee) at startup
+/home/pi/tcz/integratioWebServer.py > /var/log/integratioWebServer 2>&1
+
+exit 0
