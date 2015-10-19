@@ -162,10 +162,44 @@ class TCZee(Automaton):
 		elif TCP in pkt and (pkt[TCP].flags & 0x10 and pkt[TCP].flags & 0x08):
 			# DEBUG 
 			print "\t\t[DEBUG] in the condition established_received_data, pkt is a PSH/ACK"
+			
+			# TODO 	As of now, we are just assuming that the content of the TCP load
+			#	is an HTTP request, this might be also something else in a more advanced version
+			#	but if we need to start from somewhere, that's for sure HTTP(S)
 			if pkt[TCP].load: 
 				self.l3[TCP].ack += len(pkt[TCP].load)
+				# DEBUG
+				# Just printing the request
+				print "\t\t[DEBUG] This is the content of the PSH/ACK packet just received: "
+				print "\t\t[DEBUG] " + pkt[TCP].load
+				
+				# This is the upper layer part of this engine: we are going here to actually look
+				# at the content of the HTTP request, this is kind of against the ISO/OSI stack, 
+				# but this is the main intention of this project
+				if "GET /" in pkt[TCP].load:
+					# DEBUG
+					print "\t\t\t[DEBUG] Got a / request, preparing response"
+					
+					httpResponse = "HTTP/1.1 200 OK\x0d\x0aServer: Integratio Test Server\x0d\x0aConnection: Keep-Alive\x0d\x0aContent-Type: text/html; charset=UTF-8\x0d\x0aContent-Length: 849\x0d\x0a\x0d\x0a<html><head><title>Integratio - M. Zunino 2014</title></head><body><h2><span style='font-family:georgia,serif;'>Integratio - HTTP Test Server</span></h2><p><p><span style='color:#800080;'><span style='font-size:14px;'><em><span style='font-family:georgia,serif;'>The Integration project is an Open Source project started in 2014 by Marco Zunino.&nbsp;<a href='https://github.com/zupino/tcz'>https://github.com/zupino/tcz</a></span></em></span></span></p><span style='font-family:georgia,serif;'>This is a&nbsp;<em>really simple, </em><a href='https://bitbucket.org/secdev/scapy/src'>Scapy</a>-based implementation of a HTTP Web Server. The scope of this tool is to provide a framework to test the client robustness to <strong>network delay</strong>, <strong>malformed response </strong>and <strong>error condition</strong>.</span></p></body></html>"
+				elif "GET /somethingElse.html" in pkt[TCP].load:
+					# DEBUG
+					print "\t\t\t[DEBUG] Got a /somethingElse.html request, preparing response"
+					httpResponse = "This is a simple somethingElse.html response."
+				else:
+					# DEBUG
+					print "\t\t\t[DEBUG] Got a request for the ELSE condition, preparing response"
+					httpResponse = "This is a response for the else condition."
+				
 			self.l3[TCP].seq = pkt[TCP].ack
 			self.l3[TCP].flags = 'A'
+			
+			# Still in the assumption that whatever PSH/ACK TCP packet we receive from the client
+			# will actually contains an HTTP request. Also, I am assuming that all the sizes goes 
+			# automatically with Scapy magic
+			# TODO seems like sending the ACK for the request and the response in the same TCP segment
+			# is not ok, trying to send them separatelly
+			# self.l3[TCP].load = httpResponse
+			
 			# TODO 	it is still not clear what is better in such a situation: put here the send() call
 			# 	or put it in the action related to this state? Question arises because based on
 			# 	content of the pkt I might need different actions triggered, without the change of state.
@@ -176,11 +210,18 @@ class TCZee(Automaton):
                 	print "\t\t[DEBUG] [ESTABLISHED] Sending the ACK"
                 	self.last_packet = self.l3
                	 	self.send(self.last_packet)
-        	        # DEBUG
-	                print "\t\t[DEBUG] [ESTABLISHED]  data ACK sent, back to ESTABLISHED now: " + self.last_packet.summary()	
+        	        
+			self.l3[TCP].load = httpResponse
+			self.last_packet = self.l3
+			self.send(self.last_packet)
+			
+			
+			# DEBUG
+	                print "\t\t\t[DEBUG] content of response sent: " + self.last_packet[TCP].load
+			print "\t\t[DEBUG] [ESTABLISHED]  data ACK sent, back to ESTABLISHED now: " + self.last_packet.summary()	
 			raise self.ESTABLISHED()
 		else:
-			# Default option (some strange packet, RST for example
+			# Default option (some strange packet, RST for example or whatever I did not consider in here)
 			pass
 
 
@@ -195,5 +236,5 @@ class TCZee(Automaton):
 
 
 #TCZee.graph()
-#t = TCZee(80, debug=5)
-# t.run()
+t = TCZee(80, debug=5)
+t.run()
