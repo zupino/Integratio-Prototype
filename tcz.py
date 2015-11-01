@@ -75,7 +75,7 @@ class TCZee(Automaton):
 
 		# We are assuming here that IntegratioWebServer is listening on wlan0 interface
                 try:
-                        self.myIp = get_ip_address('lo')
+                        self.myIp = get_ip_address('wlan0')
                 except IOError:
                         self.myIp = 0
                         print "\t[WARNING] 'wlan0' interface not available, not possible to get local IP address for master filter."
