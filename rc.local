@@ -44,7 +44,11 @@ fi
 
 # Create the iptables rules to block kernel RST 
 iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP
+
 # Run the integratio Web Server (prototype of TCZee) at startup
-/home/pi/tcz/integratioWebServer.py > /var/log/integratioWebServer 2>&1
+#/home/pi/tcz/integratioWebServer.py > /var/log/integratioWebServer 2>&1
+
+# Run TC-Zee at startup
+/home/pi/tcz/tcz.py > /var/log/tcz 2>&1
 
 exit 0
