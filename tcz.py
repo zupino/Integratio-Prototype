@@ -31,6 +31,7 @@
 # providing answer to the requests of the tested IoT product in such a way to
 # stress the desired error condition.
 
+
 from scapy.all import *
 # from tcz import TCPConnection
 import time
@@ -59,7 +60,7 @@ conf.L3socket = L3RawSocket
 class TCZee(Automaton):
 	def parse_args(self, sport=80, **kargs):
 		# DEBUG	
-		print "[DEBUG] Starting processing parameters"	
+		#print "[DEBUG] Starting processing parameters"	
 		Automaton.parse_args(self, **kargs)
 		self.sport = sport
 		self.dport = 0
@@ -72,11 +73,12 @@ class TCZee(Automaton):
 
                 # We are assuming here that IntegratioWebServer is listening on wlan0 interface
                 try:
+                        # Just temporary to check on eth0 interface
 			self.myIp = get_ip_address('wlan0')
-			print "MyIP address: " + str(self.myIp)
+			#print "MyIP address: " + str(self.myIp)
                 except IOError:
                         self.myIp = 0
-                        print "\t[WARNING] 'wlan0' interface not available, not possible to get local IP address for master filter."
+                        #print "\t[WARNING] 'wlan0' interface not available, not possible to get local IP address for master filter."
                         pass
 
 		
@@ -110,12 +112,12 @@ class TCZee(Automaton):
 	@ATMT.receive_condition(LISTEN)
 	def receive_syn(self, pkt):
 		#DEBUG	
-		print "\t[DEBUG][LISTEN] Received this packet: " + pkt.summary()
+		#print "\t[DEBUG][LISTEN] Received this packet: " + pkt.summary()
 
 		# Checking if what I got is a SYN
 		if (TCP in pkt and (pkt[TCP].flags & 0x02)):
 			# DEBUG
-			print "\t\t[DEBUG][LISTEN] Inside the if (TCP SYN received)"
+			#print "\t\t[DEBUG][LISTEN] Inside the if (TCP SYN received)"
 			self.l3[IP].dst = pkt[IP].src
 			self.l3[TCP].seq = 124578
 			self.l3[TCP].ack = pkt[TCP].seq + 1
@@ -127,7 +129,7 @@ class TCZee(Automaton):
 			self.l3[TCP].sport = pkt[TCP].dport 
 			# self.l3[TCP].flags = 'SA'
 			# DEBUG
-			print "\t\t[DEBUG][LISTEN] All value from pkt copied"
+			#print "\t\t[DEBUG][LISTEN] All value from pkt copied"
 
 			# Changed 01.11.2015 I keep here the raise to change state, but I moved the call to send() in
 			# the related action, so also the state diagram will look ok.
@@ -144,7 +146,7 @@ class TCZee(Automaton):
 	@ATMT.action(receive_syn)
 	def send_synack(self):
 		# DEBUG
-		print "\t\t[DEBUG][LISTEN] running the action send_synack"
+		#print "\t\t[DEBUG][LISTEN] running the action send_synack"
 		if self.synAckReady:
 			self.l3[TCP].flags = 'SA'
 			self.last_packet = self.l3
@@ -153,9 +155,9 @@ class TCZee(Automaton):
 
 			#self.lastHttpRequest = ""
 			# DEBUG
-			print "\t\t[DEBUG][LISTEN] SYN ACK sent (synAckReady flag is set): " + self.last_packet.summary()
+			#print "\t\t[DEBUG][LISTEN] SYN ACK sent (synAckReady flag is set): " + self.last_packet.summary()
 		else:
-			print "\t\t[DEBUG][LISTEN] synAckReady flag NOT set, we received NOT A SYN: " + pkt.summary()
+			#print "\t\t[DEBUG][LISTEN] synAckReady flag NOT set, we received NOT A SYN: " + pkt.summary()
 			self.synAckReady = 0
 			pass
 	
@@ -166,13 +168,13 @@ class TCZee(Automaton):
 	def SYNACK_SENT(self):
 		#self.lastHttpRequest = ""
 		#DEBUG
-		print "[DEBUG][SYNACK_SENT] Entering now"
+		#print "[DEBUG][SYNACK_SENT] Entering now"
 		pass
 
 	@ATMT.receive_condition(SYNACK_SENT)
 	def receive_ackForSyn(self, pkt):
 		# DEBUG
-		print "[DEBUG][SYNACK_SENT] Packet received"
+		#print "[DEBUG][SYNACK_SENT] Packet received"
 		
 		# Check if I get an ACK (0x10)
 		# TODO 	A check on received pkt ACK and SEQ number would make sense, to avoid any ACK to trigger this 
@@ -185,11 +187,11 @@ class TCZee(Automaton):
 			self.l3[TCP].seq = pkt[TCP].ack
 			self.l3[TCP].ack = pkt[TCP].seq
 			# DEBUG
-			print "\t[DEBUG] [SYNACK_SENT] Received packet is a ACK, going to ESTABLISHED"
+			#print "\t[DEBUG] [SYNACK_SENT] Received packet is a ACK, going to ESTABLISHED"
 			raise self.ESTABLISHED()
 		else:
 			# Some other packet is received, not a ACK for the SYN/ACK, ignore and do nothing
-			print "\t\t[DEBUG][SYNACK_SENT] Some other packet than a ACK received, ignoring and doing nuffin': " + pkt.summary()
+			#print "\t\t[DEBUG][SYNACK_SENT] Some other packet than a ACK received, ignoring and doing nuffin': " + pkt.summary()
 			pass
 			# raise self.SYNACK_SENT(pkt)
 
@@ -197,7 +199,7 @@ class TCZee(Automaton):
 	@ATMT.timeout(SYNACK_SENT, 5)
 	def timeoutSynAckSent(self):
 		# DEBUG 
-		print "\t\t[DEBUG][SYNACK_SENT] We sent the SYN ACK but not received any ACK yet, timer expired --> back to LISTEN"
+		#print "\t\t[DEBUG][SYNACK_SENT] We sent the SYN ACK but not received any ACK yet, timer expired --> back to LISTEN"
 		raise self.LISTEN()
 
 
@@ -205,7 +207,7 @@ class TCZee(Automaton):
 	def ESTABLISHED(self):
 		#self.lastHttpRequest = ""
 		# DEBUG
-		print "[DEBUG][ESTABLISHED] Entering state"
+		#print "[DEBUG][ESTABLISHED] Entering state"
 		pass
 
 	# Let's try to separate all these cases in separate conditions, 
@@ -215,7 +217,7 @@ class TCZee(Automaton):
 	@ATMT.receive_condition(ESTABLISHED)
 	def receive_finAck(self, pkt):
 		# DEBUG
-		print "\t[DEBUG][ESTABLISHED] entering established_receive_data() condition" 
+		#print "\t[DEBUG][ESTABLISHED] entering established_receive_data() condition" 
 		
 		# Check if the packet we got is a FIN/ACK 
 		# TODO 	Make sure that in case of passive close we 
@@ -226,19 +228,24 @@ class TCZee(Automaton):
 		#	considered here also while running, even if I would expect this to
 		#	already be consumed at this point in time
 		
-		if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags & 0x10 and pkt[TCP].flags & 0x01):
+		if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags == 0x11):
 			# TODO 	here we will put the transition to the state CLOSING 
 			# 	and the related action(CLOSING) will send the FIN/ACK and 
 			#	keep track of the sequence and ack numbers correctly. Check 
 			# 	also TCP state diagram
 			
 			# DEBUG
-			print "\t\t[DEBUG][ESTABLISHED] in the condition, pkt is a FIN so I raise CLOSING state (condition): " + pkt.summary() + ". pkt port: "  + str(pkt[TCP].sport) + ", curr port: " + str(self.dport)
+			#print "\t\t[DEBUG][ESTABLISHED] in the condition, pkt is a FIN so I raise CLOSING state (condition): " + pkt.summary() + ". pkt port: "  + str(pkt[TCP].sport) + ", curr port: " + str(self.dport)
 			# Adjusting the seq and ack, in case of handshake and closing, there is an
 			# 
-			self.l3[TCP].seq = pkt[TCP].ack
+			# To consider the case detailed in the comment of the send_response, I assign to the local SEQ the pkt[TCP].ack only if it is strictly 
+			# bigger than the current SEQ value.
+			
+			if( pkt[TCP].ack > self.l3[TCP].seq ):
+				self.l3[TCP].seq = pkt[TCP].ack
 			self.l3[TCP].ack = pkt[TCP].seq + 1
-
+			# EXTRADEBUG
+			print "\t\t[EXTRADEBUG][ESTABLISHED] Received FIN-ACK: " + pkt.summary() + ". pkt[TCP].seq: " + str(pkt[TCP].seq) + " | pkt[TCP].ack: " + str(pkt[TCP].ack)
 			#self.lastHttpRequest = ""
 
 			raise self.CLOSING()
@@ -248,7 +255,7 @@ class TCZee(Automaton):
 
 	@ATMT.action(receive_finAck)
 	def send_finAck(self):
-		print "\t\t[DEBUG][ESTABLISHED] Moving to CLOSING state, sending FIN/ACK (action)"
+		#print "\t\t[DEBUG][ESTABLISHED] Moving to CLOSING state, sending FIN/ACK (action)"
 		self.l3[TCP].flags = 'FA'
                 self.last_packet = self.l3
                 self.send(self.last_packet)
@@ -262,9 +269,9 @@ class TCZee(Automaton):
 		# check if the received packet is a PSH/ACK 0x18
 		# TODO 	EPIC this will need to consider also the case of HTTP requests splitted over
 		#	multiple TCP segments, for the moment we assume request fits in one segment
-		if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags & 0x10) and (pkt[TCP].flags & 0x08):
+		if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags == 0x18):
 			# DEBUG 
-			print "\t\t[DEBUG][ESTABLISHED] in the condition established_received_data, pkt is a PSH/ACK"
+			#print "\t\t[DEBUG][ESTABLISHED] in the condition established_received_data, pkt is a PSH/ACK"
 			
 			# TODO 	As of now, we are just assuming that the content of the TCP load
 			#	is an HTTP request, this might be also something else in a more advanced version
@@ -284,7 +291,7 @@ class TCZee(Automaton):
 				self.l3[TCP].ack += len(pkt[TCP].load)
 				# DEBUG
 				# Just printing the request
-				print "\t\t[DEBUG][ESTABLISHED] This is the content of the PSH/ACK packet just received: " + pkt[TCP].load
+				#print "\t\t[DEBUG][ESTABLISHED] This is the content of the PSH/ACK packet just received: " + pkt[TCP].load
 				
 				# This is the upper layer part of this engine: we are going here to actually look
 				# at the content of the HTTP request, this is kind of against the ISO/OSI stack, 
@@ -292,7 +299,7 @@ class TCZee(Automaton):
 				
 				if "GET /delay.html HTTP" in pkt[TCP].load:
                                         # DEBUG
-                                        print "\t\t\t[DEBUG][ESTABLISHED] Got a /delay.html request, preparing response"
+                                        #print "\t\t\t[DEBUG][ESTABLISHED] Got a /delay.html request, preparing response"
 					
                                         httpBody = "<h1>200 OK Response - delayed 10 seconds</h1><p>This is a perfectly valid HTTP response, just let the client wait for a specific amount of seconds. We can decide if the daley should be at application level or at network level."
 
@@ -311,7 +318,7 @@ class TCZee(Automaton):
 				
 				elif "GET / HTTP" in pkt[TCP].load:
 					# DEBUG
-					print "\t\t\t[DEBUG][ESTABLISHED] Got a / request, preparing response"
+					#print "\t\t\t[DEBUG][ESTABLISHED] Got a / request, preparing response"
 					httpBody = "<h1>TCZ - Example of basic HTTP Server</h1><p><strong>TCZ</strong> is a <em>basic TCP stack implementation using Scapy</em> aimed to provide a framework for the creation of networking-related test cases, helping to re-create fault condition <em>impossible to trigger</em> in a production environment.</p><p>It allows to keep <strong>full control</strong> on the network layer and <em>simulate the remote services</em> of test Mobile App client or IoT products to investigate robustness, standard compliance and security.<br /><em>Here 2 simple test case examples:</em></p><p><a href='delay.html'>- Get a valid page with 5 seconds delay</a><br /><a href='567error.html'>- Get a 567 HTTP Error response</a></p><p><strong>TCZ</strong> is part of the Integratio Project, created in 2015 by Marco Zunino.<br /><a href='https://github.com/zupino/tcz'> https://github.com/zupino/tcz</a> - eng.marco.zunino@gmail.com</p>"
 
 					httpHeader = "HTTP/1.1 200 OK\x0d\x0aServer: Integratio Test Server\x0d\x0aContent-Type: text/html; charset=UTF-8\x0d\x0aContent-Length: " + str(len(httpBody)) + "\x0d\x0a\x0d\x0a"
@@ -322,7 +329,7 @@ class TCZee(Automaton):
 
 				elif "GET /567error.html HTTP" in pkt[TCP].load:
                                         # DEBUG
-                                        print "\t\t\t[DEBUG][ESTABLISHED] Got a /567error.html request, preparing response"
+                                        #print "\t\t\t[DEBUG][ESTABLISHED] Got a /567error.html request, preparing response"
                                         httpBody = "<head><title>TCZee - Integratio Project</title></head><h1>Example of a test case returning  HTTP 407 Error</h1><p></p>"
 
                                         httpHeader = "HTTP/1.1 407 Proxy authentication required\x0d\x0aServer: Integratio Test Server\x0d\x0aContent-Type: text/html; charset=UTF-8\x0d\x0aContent-Length: " + str(len(httpBody)) + "\x0d\x0a\x0d\x0a"
@@ -333,7 +340,7 @@ class TCZee(Automaton):
 
 				else:
 					# DEBUG
-					print "\t\t\t[DEBUG][ESTABLISHED] Got a request for the ELSE condition, preparing response"
+					#print "\t\t\t[DEBUG][ESTABLISHED] Got a request for the ELSE condition, preparing response"
 					httpResponse = "This is a response for the else condition."
 
 
@@ -341,8 +348,8 @@ class TCZee(Automaton):
 			# in this case I do nothing
 			else:
 				# DEBUG
-				print "\t\t[DEBUG][ESTABLISHED] pkt either has no load or the request is already in process. Pkt: " + pkt.summary()
-				print "\t\t[DEBUG][ESTABLISHED] content of current local buffer: " + self.lastHttpRequest
+				#print "\t\t[DEBUG][ESTABLISHED] pkt either has no load or the request is already in process. Pkt: " + pkt.summary()
+				#print "\t\t[DEBUG][ESTABLISHED] content of current local buffer: " + self.lastHttpRequest
 				pass
 				
 			# self.l3[TCP].seq = pkt[TCP].ack
@@ -375,7 +382,7 @@ class TCZee(Automaton):
 		else:
 			self.responseReady = 0
 			# DEBUG
-			print "\t\t[DEBUG][ESTABLISHED] We receive something that is not a PSH/ACK, so we keep flag to 0 and pass (should stay in ESTABLISHED): " + pkt.summary()
+			#print "\t\t[DEBUG][ESTABLISHED] We receive something that is not a PSH/ACK, so we keep flag to 0 and pass (should stay in ESTABLISHED): " + pkt.summary()
 			pass
 
 	
@@ -389,8 +396,19 @@ class TCZee(Automaton):
 			self.last_packet = self.l3
 			self.send(self.last_packet)
 			# DEBUG
-			print "\t\t[DEBUG][ESTABLISHED] Sent the RESPONSE! We are in the action now, but the condition has a transiction back to ESTABLISHED. Sent: " + self.last_packet.summary()
+			#print "\t\t[DEBUG][ESTABLISHED] Sent the RESPONSE! We are in the action now, but the condition has a transiction back to ESTABLISHED. Sent: " + self.last_packet.summary()
 			self.responseReady = 0
+			
+			# TODO 	Here I am 'hardcoding' the update of the local SEQ number, after sending the response.
+			#	When I am using nc as client, after sending the request, a FIN-ACK is immediately send
+			#	and the ACK value here is still 1 (because response form TCZee is not received yet).
+			#	So TCZee get a FIN-ACK that does not ACK the HTTP Response.
+			#	At this point, the send_finAck is triggered and TCZee send the FIN-ACK to close the connection
+			#	but the TCZee SEQ number is wrong as it does not consider the ACKed response from client.
+			#	I believe that also in case of a client that does not immediately send the FIN-ACK without ACKing
+			#	the response, the correct value should be copied from pkt. Let's see. 
+			
+			self.l3[TCP].seq += len(self.last_packet[TCP].payload)
 			self.l3[TCP].payload = ""
 		else:
 			# nuffin'
@@ -408,9 +426,9 @@ class TCZee(Automaton):
 		#	simply put a timer for the ESTABLISHED state and let the state machine going back to LISTEN after sending the response
 		#	We should check the "Keep Alive" header...
 
-		if TCP in pkt and (pkt[TCP].flags & 0x02) :
+		if TCP in pkt and (pkt[TCP].flags == 0x02) :
 			# DEBUG
-			print "\t\t[DEBUG][ESTABLISHED] We received a SYN while in ESTABLISHED"
+			#print "\t\t[DEBUG][ESTABLISHED] We received a SYN while in ESTABLISHED"
 			self.synAckReady = 1
 			self.l3[TCP].seq = 0
 			self.l3[TCP].ack = pkt[TCP].seq + 1
@@ -426,24 +444,27 @@ class TCZee(Automaton):
 	def sendSyn_inEstablished(self):
 		if self.synAckReady == 1:
 			# DEBUG
-	                print "\t\t[DEBUG][ESTABLISHED] running the action send_synack"
+	                #print "\t\t[DEBUG][ESTABLISHED] running the action send_synack"
         	        self.l3[TCP].flags = 'SA'
                         self.last_packet = self.l3
                         self.send(self.last_packet)
                         # DEBUG
-                        print "\t\t[DEBUG][ESTABLISHED] SYN ACK sent (synAckReady flag is set): " + self.last_packet.summary()
+                        #print "\t\t[DEBUG][ESTABLISHED] SYN ACK sent (synAckReady flag is set): " + self.last_packet.summary()
 			self.synAckReady = 0
                 else:
-                        print "\t\t[DEBUG][ESTABLISHED] synAckReady flag NOT set, we received NOT A SYN (we should not even be here): " + pkt.summary()
-                        pass
+                        #print "\t\t[DEBUG][ESTABLISHED] synAckReady flag NOT set, we received NOT A SYN (we should not even be here): " + pkt.summary()
+                        print ""
+			pass
 
 	
 	@ATMT.receive_condition(ESTABLISHED)
 	def receive_ackInEstablished(self, pkt):
-		if TCP in pkt and (pkt[TCP].flags & 0x10):
+		if TCP in pkt and (0x10 == pkt[TCP].flags):
 			# DEBUG
-			print "\t\t[DEBUG][ESTABLISHED] Received an ACK (just ACK): " + pkt.summary()
-			print "\t\t[DEBUG][ESTABLISHED] Updating local TCP.seq: " + str(pkt[TCP].ack)
+			#print "\t\t[DEBUG][ESTABLISHED] Received an ACK (just ACK): " + pkt.summary()
+			#print "\t\t[DEBUG][ESTABLISHED] Updating local TCP.seq: " + str(pkt[TCP].ack)
+			# EXTREME DEBUG
+			print "\t\t[EXTRADEBUG][ESTABLISHED] Packet recognized as ACK: " + pkt.summary() 
 			self.l3[TCP].seq = pkt[TCP].ack
 			raise self.ESTABLISHED()
 		else:
@@ -451,7 +472,7 @@ class TCZee(Automaton):
 
         def timeoutClosing(ESTABLISHED, self):
                 # DEBUG
-                print "\t\t[DEBUG][ESTABLISHED] Timeout is expired, no data received, going back to LISTEN"
+                #print "\t\t[DEBUG][ESTABLISHED] Timeout is expired, no data received, going back to LISTEN"
                 self.l3[TCP].ack = 0
                 self.l3[TCP].seq = 0
                 self.l3[TCP].payload = ""
@@ -460,15 +481,16 @@ class TCZee(Automaton):
 	@ATMT.state() # Final just for the moment to avoid the warning
 	def CLOSING(self):
 		#DEBUG 
-		print "[DEBUG] entering [CLOSING]"
-		
+		#print "[DEBUG] entering [CLOSING]"
+		print ""
+			
 	@ATMT.receive_condition(CLOSING)
 	def receive_ack_closing(self, pkt):
 		# DEBUG
 		#print "\t\t[DEBUG][CLOSING] Received a pkt in CLOSING state, if ACK then connection is close and we go back to LISTEN"
 		#if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags & 0x10):
 		# DEBUG
-		print "\t\t[DEBUG][CLOSING] Confirmed CLOSED state by receiving ACK to our FIN ACK. Reset SEQ and ACK numbers and back to LISTEN"
+		#print "\t\t[DEBUG][CLOSING] Confirmed CLOSED state by receiving ACK to our FIN ACK. Reset SEQ and ACK numbers and back to LISTEN"
 		self.l3[TCP].ack = 0
 		self.l3[TCP].seq = 0
 		self.l3[TCP].payload = ""
@@ -483,7 +505,7 @@ class TCZee(Automaton):
 	@ATMT.timeout(CLOSING, 5)
 	def timeoutClosing(self):
 		# DEBUG
-		print "\t\t[DEBUG][CLOSING] Timeout is expired, no ACK received, going back to LISTEN"
+		#print "\t\t[DEBUG][CLOSING] Timeout is expired, no ACK received, going back to LISTEN"
 		self.l3[TCP].ack = 0
                 self.l3[TCP].seq = 0
                 self.l3[TCP].payload = ""
