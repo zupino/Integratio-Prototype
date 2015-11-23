@@ -50,8 +50,6 @@
 #      t.run()
 #
 #
-#   HTTZ branch
-#
 from scapy.all import *
 # from tcz import TCPConnection
 import time
