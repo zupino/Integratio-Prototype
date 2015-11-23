@@ -31,8 +31,6 @@
 # providing answer to the requests of the tested IoT product in such a way to
 # stress the desired error condition.
 
-# Last change right now 17:06 of 22 November 2015
-
 from scapy.all import *
 # from tcz import TCPConnection
 import time
