@@ -93,7 +93,7 @@ class TCZee(Automaton):
 			
 		# recv and send buffer to be used by the external httz component
 		self.recv = ""
-		self.send = ""
+		self.toSend = ""
 
                 # We are assuming here that IntegratioWebServer is listening on wlan0 interface
                 try:
@@ -124,11 +124,11 @@ class TCZee(Automaton):
 
 	# Definition of the method to access the recv buffer
 	# this is intented to be called by the httz component
-	def recv(self):
+	def receive(self):
 		# This method will consume the available buffer
 		ret = self.recv
 		self.recv = ""
-		return self
+		return ret
 
 	# Definition of the method to check the content of the recv buffer without
 	# consuming it. I should refer to the system socket implementation to check
@@ -140,7 +140,7 @@ class TCZee(Automaton):
 	# Definition of the operation to let external component httz write in 
 	# the send buffer
 	def write(self, data):
-		self.send = data
+		self.toSend = data
 		# There is a send_response action binded to the ESTABLISHED state
 		# that should be re-used here. I'll do later TODO NEXT!
 		# we can just copy that code here or in the next method send()
@@ -161,7 +161,7 @@ class TCZee(Automaton):
 	# 'responseReady' is set)
 
 		if self.responseReady == 1:
-			self.l3[TCP].payload = self.send 
+			self.l3[TCP].payload = self.toSend 
 			self.l3[TCP].flags = 'A'
 			self.last_packet = self.l3
 			self.send(self.last_packet)
