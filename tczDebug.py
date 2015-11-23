@@ -50,7 +50,7 @@
 #      t.run()
 #
 #
-#   HTTZ branch
+#   HTTZ branch with new comments, no merged with master
 #
 from scapy.all import *
 # from tcz import TCPConnection
