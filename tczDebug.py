@@ -201,7 +201,7 @@ class TCZee(Automaton):
 		#print "\t[DEBUG][LISTEN] Received this packet: " + pkt.summary()
 
 		# Checking if what I got is a SYN
-		if (TCP in pkt and (pkt[TCP].flags & 0x02)):
+		if (TCP in pkt and (pkt[TCP].flags == 0x02)):
 			# DEBUG
 			#print "\t\t[DEBUG][LISTEN] Inside the if (TCP SYN received)"
 			self.l3[IP].dst = pkt[IP].src
