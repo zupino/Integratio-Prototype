@@ -90,6 +90,10 @@ class TCZee(Automaton):
 		# TODO	Keep track of last processed HTTP request, to 
 		# 	avoid problems with retransmission. Need to be refactored and cleaned up
 		self.lastHttpRequest = ""
+			
+		# recv and send buffer to be used by the external httz component
+		self.recv = ""
+		self.send = ""
 
                 # We are assuming here that IntegratioWebServer is listening on wlan0 interface
                 try:
@@ -118,6 +122,67 @@ class TCZee(Automaton):
 					and pkt[TCP].dport == self.sport \
 			)
 
+	# Definition of the method to access the recv buffer
+	# this is intented to be called by the httz component
+	def recv(self):
+		# This method will consume the available buffer
+		ret = self.recv
+		self.recv = ""
+		return self
+
+	# Definition of the method to check the content of the recv buffer without
+	# consuming it. I should refer to the system socket implementation to check
+	# the proper naming. This does not relly have an equivalent in SOCK_STREAM
+	# C socket programming
+	def read(self):
+		return self.recv
+
+	# Definition of the operation to let external component httz write in 
+	# the send buffer
+	def write(self, data):
+		self.send = data
+		# There is a send_response action binded to the ESTABLISHED state
+		# that should be re-used here. I'll do later TODO NEXT!
+		# we can just copy that code here or in the next method send()
+		
+		# I prepare the responseReady flag to notify that a response is available
+		# in the buffer to be sent. 
+		# The actual send is done by the method send_response (not an action anymore)
+		self.responseReady == 1
+
+
+	# This is not an action of the receive_pshAck condition, but a simple method that should be explicitly called
+        # for example by the external httz component
+
+	# @ATMT.action(receive_pshAck)
+	def send_response(self):
+	# Not sure if it makes much sense to have a method to just send, without being clear what is sent
+	# but theoretically we should reach this point only via the receive_pshAck condition (and if the flag 
+	# 'responseReady' is set)
+
+		if self.responseReady == 1:
+			self.l3[TCP].payload = self.send 
+			self.l3[TCP].flags = 'A'
+			self.last_packet = self.l3
+			self.send(self.last_packet)
+			# DEBUG
+			#print "\t\t[DEBUG][ESTABLISHED] Sent the RESPONSE! We are in the action now, but the condition has a transiction back to ESTABLISHED. Sent: " + self.last_packet.summary()
+			self.responseReady = 0
+			# TODO  Here I am 'hardcoding' the update of the local SEQ number, after sending the response.
+			#       When I am using nc as client, after sending the request, a FIN-ACK is immediately send
+			#       and the ACK value here is still 1 (because response form TCZee is not received yet).
+			#       So TCZee get a FIN-ACK that does not ACK the HTTP Response.
+			#       At this point, the send_finAck is triggered and TCZee send the FIN-ACK to close the connection
+			#       but the TCZee SEQ number is wrong as it does not consider the ACKed response from client.
+			#       I believe that also in case of a client that does not immediately send the FIN-ACK without ACKing
+			#       the response, the correct value should be copied from pkt. Let's see. 
+
+			self.l3[TCP].seq += len(self.last_packet[TCP].payload)
+			self.l3[TCP].payload = ""
+		else:
+			# nuffin'
+			self.responseReady = 0
+	
 	# BEGIN
 	@ATMT.state(initial=1)
 	def BEGIN(self):
@@ -289,7 +354,22 @@ class TCZee(Automaton):
 
 		# check if the received packet is a PSH/ACK 0x18
 		# TODO 	EPIC this will need to consider also the case of HTTP requests splitted over
-		#	multiple TCP segments, for the moment we assume request fits in one segment
+		#	multiple TCP segments, for the moment we assume request fits in one segment.
+		#
+		#	NOTES: 	HTTP Request can be
+		#
+		#			- Without a body: The request is completed when you have 2 consecutives new lines
+		#			  0x0A 0x0D 0x0A 0x0D (but we should gracefully consider also LR only			
+		#
+		#			- With a body: In this case, the request terminate
+		#				- when the number of char indicated in Content-length is reached
+		#				- according to the logic to handle the Chunked request
+		#
+		 
+		# TODO 	Assuming that the HTTP data will be always contained in a TCP segment flagged as
+		# httz	PSH/ACK, this is not necessarly true. In general all the data that arrives
+		#	should be copied in the recv buffer
+		
 		if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags == 0x18):
 			# DEBUG 
 			#print "\t\t[DEBUG][ESTABLISHED] in the condition established_received_data, pkt is a PSH/ACK"
@@ -305,64 +385,14 @@ class TCZee(Automaton):
 			#	the same resource.
 
 			if pkt[TCP].load : #and (pkt[TCP].load != self.lastHttpRequest) : 
-				
-				self.lastHttpRequest = pkt[TCP].load
+		
+				# Adding the received load to the recv buffer
+				self.recv += pkt[TCP].load
 				
 				self.l3[TCP].seq = pkt[TCP].ack
 				self.l3[TCP].ack += len(pkt[TCP].load)
-				# DEBUG
-				# Just printing the request
+				# 
 				#print "\t\t[DEBUG][ESTABLISHED] This is the content of the PSH/ACK packet just received: " + pkt[TCP].load
-				
-				# This is the upper layer part of this engine: we are going here to actually look
-				# at the content of the HTTP request, this is kind of against the ISO/OSI stack, 
-				# but this is the main intention of this project
-				
-				if "GET /delay.html HTTP" in pkt[TCP].load:
-                                        # DEBUG
-                                        #print "\t\t\t[DEBUG][ESTABLISHED] Got a /delay.html request, preparing response"
-					
-                                        httpBody = "<h1>200 OK Response - delayed 10 seconds</h1><p>This is a perfectly valid HTTP response, just let the client wait for a specific amount of seconds. We can decide if the daley should be at application level or at network level."
-
-                                        httpHeader = "HTTP/1.1 200 OK\x0d\x0aServer: Integratio Test Server\x0d\x0aContent-Type: text/html; charset=UTF-8\x0d\x0aContent-Length: " + str(len(httpBody)) + "\x0d\x0a\x0d\x0a"
-
-					httpResponse = httpHeader + httpBody
-
-					# We put here the delay, but this can easily be included in a different point
-					# to wait before sending any response to the 3-way handshake or after it
-					# to test different portions of the client code.
-					time.sleep(5)
-					self.l3 = self.l3/httpResponse
-	                                self.responseReady = 1
-
-
-				
-				elif "GET / HTTP" in pkt[TCP].load:
-					# DEBUG
-					#print "\t\t\t[DEBUG][ESTABLISHED] Got a / request, preparing response"
-					httpBody = "<h1>TCZ - Example of basic HTTP Server</h1><p><strong>TCZ</strong> is a <em>basic TCP stack implementation using Scapy</em> aimed to provide a framework for the creation of networking-related test cases, helping to re-create fault condition <em>impossible to trigger</em> in a production environment.</p><p>It allows to keep <strong>full control</strong> on the network layer and <em>simulate the remote services</em> of test Mobile App client or IoT products to investigate robustness, standard compliance and security.<br /><em>Here 2 simple test case examples:</em></p><p><a href='delay.html'>- Get a valid page with 5 seconds delay</a><br /><a href='567error.html'>- Get a 567 HTTP Error response</a></p><p><strong>TCZ</strong> is part of the Integratio Project, created in 2015 by Marco Zunino.<br /><a href='https://github.com/zupino/tcz'> https://github.com/zupino/tcz</a> - eng.marco.zunino@gmail.com</p>"
-
-					httpHeader = "HTTP/1.1 200 OK\x0d\x0aServer: Integratio Test Server\x0d\x0aContent-Type: text/html; charset=UTF-8\x0d\x0aContent-Length: " + str(len(httpBody)) + "\x0d\x0a\x0d\x0a"
-					# httpHeader = "HTTP/1.1 200 OK\x0d\x0aServer: Integratio Test Server\x0d\x0aConnection: Keep-Alive\x0d\x0aContent-Type: text/html; charset=UTF-8\x0d\x0aContent-Length: " + str(len(httpBody)) + "\x0d\x0a\x0d\x0a"
-					httpResponse = httpHeader + httpBody
-					self.l3 = self.l3/httpResponse
-	                                self.responseReady = 1
-
-				elif "GET /567error.html HTTP" in pkt[TCP].load:
-                                        # DEBUG
-                                        #print "\t\t\t[DEBUG][ESTABLISHED] Got a /567error.html request, preparing response"
-                                        httpBody = "<head><title>TCZee - Integratio Project</title></head><h1>Example of a test case returning  HTTP 407 Error</h1><p></p>"
-
-                                        httpHeader = "HTTP/1.1 407 Proxy authentication required\x0d\x0aServer: Integratio Test Server\x0d\x0aContent-Type: text/html; charset=UTF-8\x0d\x0aContent-Length: " + str(len(httpBody)) + "\x0d\x0a\x0d\x0a"
-					httpResponse = httpHeader + httpBody
-                                        self.l3 = self.l3/httpResponse
-                                        self.responseReady = 1
-		
-
-				else:
-					# DEBUG
-					#print "\t\t\t[DEBUG][ESTABLISHED] Got a request for the ELSE condition, preparing response"
-					httpResponse = "This is a response for the else condition."
 
 
 			# If received pkt has no load OR if the HTTP request is already received
@@ -407,7 +437,10 @@ class TCZee(Automaton):
 			pass
 
 	
-	@ATMT.action(receive_pshAck)
+	# This is not an action of the receive_pshAck condition, but a simple method that should be explicitly called
+	# for example by the external httz component
+
+	# @ATMT.action(receive_pshAck)
 	def send_response(self):
 		# Not sure if it makes much sense to have a method to just send, without being clear what is sent
 		# but theoretically we should reach this point only via the receive_pshAck condition (and if the flag 
