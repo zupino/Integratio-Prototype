@@ -73,8 +73,8 @@ class TCZee(Automaton):
 
                 # We are assuming here that IntegratioWebServer is listening on wlan0 interface
                 try:
-			self.myIp = get_ip_address('wlan0')
-			print "MyIP address: " + str(self.myIp)
+                        self.myIp = get_ip_address('wlan0')
+			print "MyIP address: " + self.myIp
                 except IOError:
                         self.myIp = 0
                         print "\t[WARNING] 'wlan0' interface not available, not possible to get local IP address for master filter."
@@ -234,7 +234,7 @@ class TCZee(Automaton):
 			# 	also TCP state diagram
 			
 			# DEBUG
-			print "\t\t[DEBUG][ESTABLISHED] in the condition, pkt is a FIN so I raise CLOSING state (condition): " + pkt.summary() + ". pkt port: "  + str(pkt[TCP].sport) + ", curr port: " + str(self.dport)
+			print "\t\t[DEBUG][ESTABLISHED] in the condition, pkt is a FIN so I raise CLOSING state (condition): " + pkt.summary()
 			# Adjusting the seq and ack, in case of handshake and closing, there is an
 			# 
 			self.l3[TCP].seq = pkt[TCP].ack
@@ -277,7 +277,7 @@ class TCZee(Automaton):
 			# 	this buffer when timeout, because I might want to make 2 consecutive requests for
 			#	the same resource.
 
-			if pkt[TCP].load : #and (pkt[TCP].load != self.lastHttpRequest) : 
+			if pkt[TCP].load and (pkt[TCP].load != self.lastHttpRequest) : 
 				
 				self.lastHttpRequest = pkt[TCP].load
 				
@@ -313,7 +313,7 @@ class TCZee(Automaton):
 				elif "GET / HTTP" in pkt[TCP].load:
 					# DEBUG
 					print "\t\t\t[DEBUG][ESTABLISHED] Got a / request, preparing response"
-					httpBody = "<h1>TCZ - Example of basic HTTP Server</h1><p><strong>TCZ</strong> is a <em>basic TCP stack implementation using Scapy</em> aimed to provide a framework for the creation of networking-related test cases, helping to re-create fault condition <em>impossible to trigger</em> in a production environment.</p><p>It allows to keep <strong>full control</strong> on the network layer and <em>simulate the remote services</em> of test Mobile App client or IoT products to investigate robustness, standard compliance and security.<br /><em>Here 2 simple test case examples:</em></p><p><a href='delay.html'>- Get a valid page with 5 seconds delay</a><br /><a href='567error.html'>- Get a 567 HTTP Error response</a></p><p><strong>TCZ</strong> is part of the Integratio Project, created in 2015 by Marco Zunino.<br /><a href='https://github.com/zupino/tcz'> https://github.com/zupino/tcz</a> - eng.marco.zunino@gmail.com</p>"
+					httpBody = "<h1>TCZee - Example of basic HTTP Server</h1><p><strong>TCZee</strong> is a <em>basic TCP stack implementation using Scapy</em> aimed to provide a framework for the creation of networking-related test cases, helping to re-create fault condition <em>impossible to trigger</em> in a production environment.</p><p>It allows to keep <strong>full control</strong> on the network layer and <em>simulate the remote services</em> of test client IoT products to investigate its robustness, standard compliance and security.<br /><em>Here 2 simple test case examples:</em></p><p><a href='delay.html'>- Get a valid page with 10 seconds delay</a><br /><a href='567error.html'>- Get a 567 HTTP Errorresponse</a></p><p><strong>TCZee</strong> is part of the Integratio Project, created in 2014 by Marco Zunino.<br /><a href='https://github.com/zupino/tcz'> https://github.com/zupino/tcz</a> - eng.marco.zunino@gmail.com</p>"
 
 					httpHeader = "HTTP/1.1 200 OK\x0d\x0aServer: Integratio Test Server\x0d\x0aContent-Type: text/html; charset=UTF-8\x0d\x0aContent-Length: " + str(len(httpBody)) + "\x0d\x0a\x0d\x0a"
 					# httpHeader = "HTTP/1.1 200 OK\x0d\x0aServer: Integratio Test Server\x0d\x0aConnection: Keep-Alive\x0d\x0aContent-Type: text/html; charset=UTF-8\x0d\x0aContent-Length: " + str(len(httpBody)) + "\x0d\x0a\x0d\x0a"
@@ -450,13 +450,12 @@ class TCZee(Automaton):
 		else:
 			pass
 
-        def timeoutClosing(ESTABLISHED, self):
-                # DEBUG
-                print "\t\t[DEBUG][ESTABLISHED] Timeout is expired, no data received, going back to LISTEN"
-                self.l3[TCP].ack = 0
-                self.l3[TCP].seq = 0
-                self.l3[TCP].payload = ""
-                self.last_packet = self.l3
+
+
+
+
+
+		
 
 	@ATMT.state() # Final just for the moment to avoid the warning
 	def CLOSING(self):
