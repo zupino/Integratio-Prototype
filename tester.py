@@ -1,5 +1,9 @@
 from tczDebug import TCZee
 from _pyio import __metaclass__
+import json
+import glob # file fetching
+import re # string splitting
+import ast # str to dict
 
 '''Approach for Test Server using the Meta classes.'''
 
@@ -9,10 +13,18 @@ class Tester(object):
     def __init__(self):
         self.testServers=[]
 
-    def jsonParse(self, file='test.json'):
-        ''' Function to be completed by raja for Issue #5 to parse a specific 
-        json file and return as python dictionary.'''
-        pass
+    # Reads all the json files from 'config' folder and returns a list with N dictionaries
+    def jsonParse(self):
+        allJsonContent = []
+        for filename in glob.glob('./configs_1/*.json'):
+            openFile = open(filename)
+            readFile = openFile.read()
+            readFile = ''.join(re.split(r'[\n\t]\s*', readFile))# Spaces are converted to next line '/n' and tabs as '/t'
+            singleFileDict = ast.literal_eval(readFile)
+            allJsonContent.append(singleFileDict) # contains the content of all the available JSON files contents
+            openFile.close()# closing the current JSON file
+        return allJsonContent
+
 
     def createTestServer(self, jsonDict=None):
         ''' Function calls the Tester Component defined in Tester.py'''
