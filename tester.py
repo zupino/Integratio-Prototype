@@ -16,7 +16,7 @@ class Tester(object):
     # Reads all the json files from 'config' folder and returns a list with N dictionaries
     def jsonParse(self):
         allJsonContent = []
-        for filename in glob.glob('./configs_1/*.json'):
+        for filename in glob.glob('./configs/*.json'):
             openFile = open(filename)
             readFile = openFile.read()
             readFile = ''.join(re.split(r'[\n\t]\s*', readFile))# Spaces are converted to next line '/n' and tabs as '/t'
