@@ -8,14 +8,14 @@ from mockArchitecture import *
 
 if __name__ == '__main__':
     print 'Testing the actual TestServer class'
-    TestServer=dynamicServerTemplate(decorator=None, fName='dummyRecevie_syn', category=None)
+    TestServer=dynamicServerTemplate(decorator=None, fName='send_finAck', category=None)
     serverObj = TestServer()    
     serverObj.dummyRecevie_syn()
     serverObj.dummyRecevie_ack()
     print '-----------------------------------'
 
 
-    TestServer1 = dynamicServerTemplate(decorator=TCZeeDummy.timeDecorator, fName='dummyRecevie_syn', category='time')
+    TestServer1 = dynamicServerTemplate(decorator=TCZeeDummy.timeDecorator, fName='send_finAck', category='time')
     serverObj = TestServer1()    
     serverObj.dummyRecevie_syn()
     

@@ -1,6 +1,0 @@
-{
-	"state":"SYNACK_SENT",
-    "category":"time",
-    "testType":"SynAckDelay",
-    "data":"10"
-}

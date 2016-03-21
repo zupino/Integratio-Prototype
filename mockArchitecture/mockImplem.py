@@ -8,6 +8,8 @@ import time
 import types
 import inspect
 from functools import wraps
+from tcz.tczDebug import TCZee
+from scapy.automaton import Automaton_metaclass
 
 def dummyDecorator(func):
     """Dummy decorator dunction to mock the Automaton State decorators.
@@ -71,9 +73,12 @@ class TCZeeDummy(object):
             print "Inside time Wrapper. calling method %s now..."%(func.__name__)
             response = func(*args, **kwargs)
             time.sleep(10)
+            print "After sleep out..."
             return response
         return wrapped
-        
+
+class TCZ(TCZeeDummy, TCZee):
+    pass
        
 def decorating_meta(decorator, fName, category):
     """Decorated function to generate dynamic meta classes. 
@@ -93,7 +98,7 @@ def decorating_meta(decorator, fName, category):
     Raises:
         None.
     """
-    class DecoratedMetaclass(type):
+    class DecoratedMetaclassBase(type):
 
         def __new__(self, class_name, bases, namespace):
             if decorator is not None and category is 'time':
@@ -112,11 +117,16 @@ def decorating_meta(decorator, fName, category):
                         setattr(bases[0], key, decorator(value))
                 return type.__init__(self, class_name, bases, namespace)
   
+    class DecoratedMetaclass(Automaton_metaclass, DecoratedMetaclassBase):
+        def __new__(self, class_name, bases, namespace):
+            print "M3 called for " + class_name
+            return super(DecoratedMetaclass, self).__new__(self, class_name, bases, namespace)
+    
     return DecoratedMetaclass
 
-def dynamicServerTemplate(decorator=None, fName='dummyRecevie_syn', category=None):
+def dynamicServerTemplate(decorator=None, fName='receive_finAck', category=None):
 
-    class TestServer(TCZeeDummy):
+    class TestServer(TCZee):
         __metaclass__ = decorating_meta(decorator, fName, category)
         pass
     return TestServer

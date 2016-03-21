@@ -56,7 +56,7 @@ from scapy.all import *
 # from tcz import TCPConnection
 import time
 
-
+from functools import wraps
 # Just a small utility to get from system the ip of a specific network interface
 import socket
 import fcntl
@@ -78,7 +78,7 @@ def get_ip_address(ifname):
 conf.L3socket = L3RawSocket
 
 class TCZee(Automaton):
-	def parse_args(self, sport=80, **kargs):
+	def parse_args(self, sport=80, delay=0, **kargs):
 		# DEBUG	
 		#print "[DEBUG] Starting processing parameters"	
 		Automaton.parse_args(self, **kargs)
@@ -90,7 +90,7 @@ class TCZee(Automaton):
 		# TODO	Keep track of last processed HTTP request, to 
 		# 	avoid problems with retransmission. Need to be refactored and cleaned up
 		self.lastHttpRequest = ""
-			
+		self.delay=delay	
 		# recv and send buffer to be used by the external httz component
 		self.recv = ""
 		self.toSend = ""
@@ -566,8 +566,30 @@ class TCZee(Automaton):
                 self.last_packet = self.l3
                 raise self.LISTEN()
 
-			
-	
+
+	# The decorators are defined as the static methods to define in the
+	# same scope to avoid overlapping scope while updating the tcpHeader
+	# attribute for content type tests.
+	@staticmethod
+	def contentDecorator(func):
+		@wraps(func)
+		def wrapped(self, *args, **kwargs):
+			print "Inside content Wrapper. calling method %s now..."%(func.__name__)
+			self.tcpHeader = 'I updated the header.. Now :)'
+			response = func(self, *args, **kwargs)
+			return response
+		return wrapped
+
+	@staticmethod
+	def timeDecorator(func):
+		@wraps(func)
+		def wrapped(self, *args, **kwargs):
+			print "Inside time Wrapper. calling method %s now.."%(func.__name__)
+			response = func(self, *args, **kwargs)
+			time.sleep(self.delay)
+			print "After Sleep for a delay of.. %d"%(self.delay)
+			return response
+		return wrapped
 #TCZee.graph()
 #t = TCZee(80)
 #t.run()
