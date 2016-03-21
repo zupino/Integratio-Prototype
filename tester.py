@@ -31,7 +31,7 @@ class TestServerFactory(object):
         for server in self.serverObjectRegistry:
             server.run()
 
-    @staticmethod
+            @staticmethod
     def decorating_meta(decorator, fName, category):
         """Decorated function to generate dynamic meta classes. 
     
