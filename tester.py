@@ -20,7 +20,9 @@ class TestServerFactory(object):
                                                              fName=jsonDict['fName'],
                                                              category=jsonDict['category'])
             
-            serverObject = TestServer(int(jsonDict['listeningPort']), delay=int(jsonDict['parameter']), debug=3) 
+            serverObject = TestServer(int(jsonDict['listeningPort']), delay=int(jsonDict['parameter']), debug=3)
+            import pdb
+            pdb.set_trace() 
             self.serverClassRegistry.append(TestServer)
             self.serverObjectRegistry.append(serverObject)
 
@@ -50,26 +52,22 @@ class TestServerFactory(object):
         Raises:
             None.
         """
-        class DecoratedMetaclassBase(type):
+        class DecoratedMetaclassBase(Automaton_metaclass):
     
             def __new__(self, class_name, bases, namespace):
                 if decorator is not None and category.encode('utf-8') == 'time':
+                    import pdb
+                    pdb.set_trace() 
                     for key, value in list(bases[0].__dict__.items()):
-                        if callable(value) and key in fName:
+                        print '0'
+                        if callable(value) and key is fName:
+                            print '1', key, value, decorator, decorator(value)
                             setattr(bases[0], key, decorator(value))
-                    return type.__new__(self, class_name, bases, namespace)
+                    return super(DecoratedMetaclassBase, self).__new__(self, class_name, bases, namespace)
                 else:
-                    return type.__new__(self, class_name, bases, namespace)
-            def __init__(self, class_name, bases, namespace):
-                if category is not 'content':
-                    return type.__init__(self, class_name, bases, namespace)
-                else:
-                    for key, value in list(bases[0].__dict__.items()):
-                        if callable(value) and key == fName:
-                            setattr(bases[0], key, decorator(value))
-                    return type.__init__(self, class_name, bases, namespace)
+                    return super(DecoratedMetaclassBase, self).__new__(self, class_name, bases, namespace)
       
-        class DecoratedMetaclass(Automaton_metaclass, DecoratedMetaclassBase):
+        class DecoratedMetaclass(DecoratedMetaclassBase):
             def __new__(self, class_name, bases, namespace):
                 print "M3 called for " + class_name
                 return super(DecoratedMetaclass, self).__new__(self, class_name, bases, namespace)
@@ -80,7 +78,7 @@ class TestServerFactory(object):
     def dynamicServerTemplate(decorator=None, fName='receive_finAck', category=None):
     
         class TestServer(TCZee):
-            __metaclass__ = TestServerFactory.decorating_meta(decorator, fName, category)
+            __metaclass__ =   TestServerFactory.decorating_meta(decorator, fName, category)
             pass
         return TestServer
 

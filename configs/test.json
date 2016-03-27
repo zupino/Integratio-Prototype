@@ -2,7 +2,7 @@
 
 	"category" : "time",
 	"state" :	"Delay testing",
-	"parameter" : 5,
+	"parameter" : 2,
 	"listeningPort" : 80,
 	"listeningAddress" : "testing.com"	
 
