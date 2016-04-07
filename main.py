@@ -1,87 +1,46 @@
 #! /usr/bin/python
 
 from scapy.all import *
-from tczDebug import TCZee
+from tester import *
+from functools import wraps
+import json
+import glob # file fetching
+import sys
 
 # To be used when working on local interface l0
 conf.L3socket = L3RawSocket
+sys.path.append('.')
 
-# THIS is a pseudo-code scheleton and illustration of what we are targeting
-# for the Integratio Framework.
-# It is not supposed to run, nor to contain all the component in this single
-# file, but just to show the main component of the Integratio Framework 
-# and the communication among them.
+log_scapy = logging.getLogger("scapy")
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+log_scapy.addHandler(console_handler)
+log_runtime = logging.getLogger("scapy.runtime")          # logs at runtime
+log_runtime.addFilter(ScapyFreqFilter())
+log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions
+log_loading = logging.getLogger("scapy.loading")          # logs when loading scapy
 
-# 1) 	The test files are read from JSON TestCases on the filesystem
-# 	for this example the test case is a simple delay in establishing
-# 	the TCP connection (send the SYN ACK is delayed)
-#
-#	[inside the main.py]
-tester = Tester()
-tester.newTestServer("testCase001.json")
+if __name__=='__main__':
+    
+    log_scapy.setLevel(1)
+    log_interactive.setLevel(1)
+    log_runtime.setLevel(1)
+    log_loading.setLevel(1)
 
-# The file content is somethig like this
-#
-# testCase001.json:
-# 	{
-#		category : "time",
-#		state :	"send_synAck".
-#		parameters: 5
-#		listeningPort: 80
-#		listeningAddress: gingerino.com
-#	}
-#
-
-# 2) 	Internally, the Tester is instantiating a new TestServer object
-# 	that is composed by a TCZee and a HTTZee class. These object are
-#	configured on the base of the content of the TestCase we are loading
-
-#		[inside Tester.py]
-	self.newTestServer(filename)
-		self.testServers[last] = TestServer( self.readJson(filename) ) 
-
-#		[inside TestServer.py]
-		init(config)
-			self.tcz = TCZee(config)
-			# Eventually, but not in the example we are considering
-			self.httz = HTTZee( config.parameters )
-			# TODO Need to properly place the shared buffers between TCZ and HTTZ. Inside TestServer? Would make sense
-			
-# 3) 	The TCZee class need to setup itself based on the parameters read in the json file,
-#	passed as 'config' parameters when TestServer initialize it 
-		
-#		[inside TCZee.py]
-		init(config)
-			self.category = config.category # 'time' in this example
-			self.testCaseState = config.state 	# This parameter tells the TCZee instance at which step of the TCP state machine
-								# the behavior described by the json TestCase need to be setup.
-		# [...] The check below should be repeated for each state in the state machine.
-		@Automata.state SYNACK_SENT:
-			if self.testCaseCategory == "SYNACK_SENT":
-				switch(	self.category ):
-					case "time"
-						# prepare the needed code to delay the transmission of the acket in this
-						# specific state. Might be as simple as a time.sleep(config.parameter) here
-					case "content"
-						# in this specific example it does not really make sense to consider the content
-						# case, as we are in TCZee and the content case should be related with the 
-						# application layer payload, so in the HTTZee component.
-					case "fuzzy"
-						# as we might want to send the SYN/ACK fuzzed, we might simply fuzz the headers
-						# using built-in Scapy support or provide more details in the config.parameter
-						# section  
-						# TODO 2 Need to define the structure for the 'parameter' section so that
-						#	 it will make sense and possibly try to avoid un-expected format
-
-# 4)	Now that the test server is correctly setup and ready, we run it from the main file
-#	[inside main.py]
-
-tester.runLastTest()
-
-# From this moment on, there is a TestServer listening on the configured port, 
-# that as soon as the client connects, will behave according to the TestCase
-# description in the json file. In this concrete example, will simply
-# wait 5 seconds before sending the response packet in the SYNACK_SENT state.
-# TODO check the consistencie with the state names
-# TODO prepare a TCZee state machine
-# TODO check how to apply the use case of 'content' category with HTTZee()
+    processedJson={}
+    plainJson={}
+    # creating Test Server Factory 
+       
+    #create Configuration Expert
+    configExpert = ConfigExpert()
+    
+    # Poll the json files from the config folder
+    for fileName in glob.glob('./configs/test.json'):
+        with open(fileName) as dataFile:
+            plainJson = json.load(dataFile)
+        # call the configuration expert to normalize the- json dict
+        processedJson = configExpert.process(plainJson)
+        comp = Tester(jsonDict=processedJson)
+        comp.runComponent()
+        
+    
