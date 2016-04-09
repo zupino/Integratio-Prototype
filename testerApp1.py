@@ -45,6 +45,7 @@ class TesterApp1(object):
         configuration folder and calls the jsonParse function in loops. This 
         is also part of Issue #5. '''
         self.currentTest.run()
+            
                 
 
 class ConfigExpertApp1(object):

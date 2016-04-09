@@ -119,8 +119,8 @@ class TCZee(Automaton):
 			print "Current state:%s"%(self.state.state)
 			print "Pushing the Automaton to final state"
 			self.state.state=self.state.final
+			return
 			
-        
         
 		if self.state.state == self.Tstate[0] and self.category=='time':
 			print "In master filter :: going to sleep for %d"%(self.parameter)
