@@ -23,102 +23,57 @@ log_loading = logging.getLogger("scapy.loading")          # logs when loading sc
 
 '''Approach for Test Server using the Meta classes.'''
 
-class Tester(object):
+class TesterApp1(object):
     
     def __init__(self, jsonDict=None):
         self.configRegistry=jsonDict  
         self.nCond=jsonDict['Nconditions'] 
         self.parameter=jsonDict['parameter']
-        self.state=[]
-        self.state.append(jsonDict['state'])
+        self.stateTest=[]
+        self.stateTest.append(jsonDict['state'])
         self.category=jsonDict['category']
-        self.currentTest=TCZee(80, debug=3)
-        self.preProcess()
+        self.currentTest=TCZee(80,
+                               Tstate=self.stateTest,
+                               category=self.category,
+                               parameter=self.parameter,
+                               nCond=self.nCond,
+                               debug=3)
         TCZee.graph()
     
-    def preProcess(self):
-        
-        if self.category=='time':
-            self.timePreprocess()
-        elif self.category=='content':
-            self.contentPreprocess()
-        else:
-            self.fuzzyPreprocess()
-    
-    def timePreprocess(self):
-
-        for state, deco_function in self.currentTest.states.iteritems():
-                if state == self.state[0]:
-                    self.currentTest.add_interception_points(state)
-
-    def contentPreprocess(self):
-        pass
-    
-    def fuzzyPreprocess(self):
-        pass
-
-    def interceptProcess(self):
-        
-        if self.category=='time':
-            self.timeInterceptProcess()
-        elif self.category=='content':
-            self.contentInterceptPreprocess()
-        else:
-            self.fuzzyInterceptPreprocess()
-
-    def timeInterceptProcess(self):
-        # DEBUG
-        print "sleep for %d delay"%(self.parameter)
-        time.sleep(self.parameter)
-        self.nCond=self.nCond-1
-           
-    def contentInterceptPreprocess(self):
-        pass
-    
-    def fuzzyInterceptPreprocess(self):
-        pass
-    
-           
     def runComponent(self):
         ''' Function which search for the list of json files in the specified 
         configuration folder and calls the jsonParse function in loops. This 
         is also part of Issue #5. '''
-        while self.nCond>0:
-            try:
-                self.currentTest.run()
-            except Automaton.InterceptionPoint,Pkt:
-                print "from the runcomponent I am in %s",(self.currentTest.state.state)
-                self.interceptProcess()
-                self.currentTest.accept_packet(self.currentTest.intercepted_packet)
-                # Here we can add post process in case of fuzzy
-            else:
-                pass
-        print "Tested specified tested number of conditions"
-        time.sleep(15)
-        print "stopping the automaton"
-        self.currentTest.stop()
-        print " Now ... Exiting..."
+        self.currentTest.run()
+            
+                
 
-
-class ConfigExpert(object):
+class ConfigExpertApp1(object):
     
     def __init__(self):
         self.json = {}
         self.json['category']=''
         self.json['parameter']=''
+        self.Nconfig=0
 
     def process(self, rawJson):
         ''' Here the raw Json data from the file is process to 
         match the processed json structure.'''
         
         self.json = copy.deepcopy(rawJson)
-        
+        self.Nconfig=self.Nconfig+1
+        self.json['Nconfigs']=self.Nconfig
         # Since we know that for the time category the parameter 
         # is a delay. It is converted to an Integer Value.
         
         if 'time' in self.json['category']:
             self.json['parameter']=int(rawJson['parameter'])
-            # Here currently trying to test the same config from the json file for 5 times
-            # But must 
+            # Here currently trying to test the same config 
+            # from the json file for 5 times
+            # But this must be computed from the number of condtions 
+            # given for that specific test-ID 
             self.json['Nconditions']=2
+    
+    def getRegistry(self):
         return self.json
+    

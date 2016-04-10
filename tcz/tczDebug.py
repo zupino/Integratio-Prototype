@@ -55,7 +55,8 @@
 from scapy.all import *
 # from tcz import TCPConnection
 import time
-
+import sys
+import signal
 from functools import wraps
 # Just a small utility to get from system the ip of a specific network interface
 import socket
@@ -78,7 +79,7 @@ def get_ip_address(ifname):
 conf.L3socket = L3RawSocket
 
 class TCZee(Automaton):
-	def parse_args(self, sport=80, **kargs):
+	def parse_args(self, sport=80, Tstate=[], category=None, parameter=None, nCond=None, **kargs):
 		# DEBUG	
 		#print "[DEBUG] Starting processing parameters"	
 		Automaton.parse_args(self, **kargs)
@@ -93,6 +94,10 @@ class TCZee(Automaton):
 		# recv and send buffer to be used by the external     httz component
 		self.recv = ""
 		self.toSend = ""
+		self.Tstate=Tstate
+		self.category=category
+		self.parameter=parameter
+		self.nCond=nCond
 
                 # We are assuming here that IntegratioWebServer is listening on wlan0 interface
                 try:
@@ -107,7 +112,22 @@ class TCZee(Automaton):
 
 		
 	def master_filter(self, pkt):
-		print "Im Master"
+		
+		# Checking the current state of the Automaton and checking the current state to conditions to be
+		# executed. If all conditions in the config files are tested it would stop the thread
+		if self.nCond<=0:
+			print "Current state:%s"%(self.state.state)
+			print "Pushing the Automaton to final state"
+			self.state.state=self.state.final
+			return
+			
+        
+		if self.state.state == self.Tstate[0] and self.category=='time':
+			print "In master filter :: going to sleep for %d"%(self.parameter)
+			time.sleep(self.parameter)
+			self.nCond=self.nCond-1
+
+        
 		# If I could retrieve my ip address, I use it in master filter, otherwise I do not use it.
 		if self.myIp == 0:
 			# print "myIp is not defined"

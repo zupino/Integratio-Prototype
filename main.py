@@ -32,7 +32,7 @@ if __name__=='__main__':
     # creating Test Server Factory 
        
     #create Configuration Expert
-    configExpert = ConfigExpert()
+    configExpert = ConfigExpertApp1()
     
     # Poll the json files from the config folder
     for fileName in glob.glob('./configs/test.json'):
@@ -40,7 +40,7 @@ if __name__=='__main__':
             plainJson = json.load(dataFile)
         # call the configuration expert to normalize the- json dict
         processedJson = configExpert.process(plainJson)
-        comp = Tester(jsonDict=processedJson)
-        comp.runComponent()
         
+    comp = TesterApp1(jsonDict=configExpert.getRegistry())
+    comp.runComponent()
     
