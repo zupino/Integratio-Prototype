@@ -568,7 +568,10 @@ class TCZee(Automaton):
 		self.l3[TCP].seq = 0
 		self.l3[TCP].payload = ""
 		self.last_packet = self.l3
-		raise self.LISTEN()
+		
+		# Instead of going back to LISTEN I go to the final state to have an exit condition
+		# for the state machine
+		raise self.END()
 		#else:
 		#	# something else received
 		#	# DEBUG
@@ -585,6 +588,11 @@ class TCZee(Automaton):
                 self.last_packet = self.l3
                 raise self.LISTEN()
 
+	# This is simply a final state to have an exit condition
+	# once the TCP terminate connection is completed
+	@ATMT.state(final=1)
+	def END(self):
+		pass
 
 	# The decorators are defined as the static methods to define in the
 	# same scope to avoid overlapping scope while updating the tcpHeader
