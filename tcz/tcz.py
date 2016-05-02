@@ -103,7 +103,7 @@ class TCZee(Automaton):
                 # We are assuming here that IntegratioWebServer is listening on wlan0 interface
                 try:
                         # Just temporary to check on eth0 interface
-			self.myIp = get_ip_address('eth0')
+			self.myIp = get_ip_address('wlan0')
 			#self.myIp = 0
 			#print "MyIP address: " + str(self.myIp)
                 except IOError:
@@ -315,7 +315,14 @@ class TCZee(Automaton):
 	@ATMT.action(receive_finAck)
 	def send_finAck(self):
 		self.l3[TCP].flags = 'FA'
-                self.last_packet = self.l3
+
+		# Usually we arrange seq and ack in the preparPkt() method,
+		# but in case of sending a SYN ACK as response to an active
+		# disconnection from the client, we need to add +1 to the ack
+		# even if the pkt[TCP].load.))len__() == 0                
+		
+		self.l3[TCP].ack += 1
+		self.last_packet = self.l3
                 self.send(self.last_packet)
 
 	
@@ -359,6 +366,13 @@ class TCZee(Automaton):
 		
 				# Adding the received load to the recv buffer
 				self.recv += pkt[TCP].load
+
+				# We consume the content of the TCP load
+				# by printing it, until we have an HTTZee to do something
+				# more meaningful with it
+				print "\n[TCP Payload] " + self.receive() 
+				print "\n"
+
 				self.preparePkt(pkt)
 	
 			# If received pkt has no load OR if the HTTP request is already received
@@ -450,7 +464,7 @@ class TCZee(Automaton):
 		# Instead of going back to LISTEN I go to the final state to have an exit condition
 		# for the state machine
 		
-		if (TCP in pkt and (pkt[TCP].flags == 0x11)):
+		if (TCP in pkt and (pkt[TCP].flags == 0x10)):
 			raise self.END()
 		#else:
 		#	# something else received
@@ -472,7 +486,7 @@ class TCZee(Automaton):
 	# once the TCP terminate connection is completed
 	@ATMT.state(final=1)
 	def END(self):
-		pass
+		return "Exiting"
 
 #TCZee.graph()
 t = TCZee(80, debug=3)
