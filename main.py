@@ -35,12 +35,14 @@ if __name__=='__main__':
     configExpert = ConfigExpert()
     
     # Poll the json files from the config folder
-    for fileName in glob.glob('./configs/test.json'):
+    for fileName in glob.glob('./configs/*.json'):
         with open(fileName) as dataFile:
             plainJson = json.load(dataFile)
         # call the configuration expert to normalize the- json dict
-        processedJson = configExpert.process(plainJson)
-        
+        configExpert.process(plainJson)
+    
+    print "Json Registry:%s"%(configExpert.getRegistry())
+      
     comp = Tester(jsonDict=configExpert.getRegistry())
     comp.runComponent()
     
