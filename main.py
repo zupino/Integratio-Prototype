@@ -27,7 +27,6 @@ if __name__=='__main__':
     log_runtime.setLevel(1)
     log_loading.setLevel(1)
 
-    processedJson={}
     plainJson={}
     # creating Test Server Factory 
        
@@ -40,9 +39,13 @@ if __name__=='__main__':
             plainJson = json.load(dataFile)
         # call the configuration expert to normalize the- json dict
         configExpert.process(plainJson)
-    
+    # Only for debug purpose
     print "Json Registry:%s"%(configExpert.getRegistry())
-      
+    
+    # Creating the teser object for the jsonRegistry dict
     comp = Tester(jsonDict=configExpert.getRegistry())
+    
+    # This runComponent loops over all the normalized json config 
+    # respective to individual test case configs..
     comp.runComponent()
     

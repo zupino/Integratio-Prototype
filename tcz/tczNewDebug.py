@@ -326,7 +326,7 @@ class TCZee(Automaton):
 		
 		self.l3[TCP].ack += 1
 		self.last_packet = self.l3
-		if self.jsonConfig['category']=='time' and self.jsonConfig['state']=='CLOSING':
+		if self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
 			# This is added only for debug purposes
 			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
 									       self.jsonConfig['state'],
@@ -458,7 +458,7 @@ class TCZee(Automaton):
 	def sendSyn_inEstablished(self):
       		self.l3[TCP].flags = 'SA'
                 self.last_packet = self.l3
-                if self.jsonConfig['category']=='time' and self.jsonConfig['state']=='SYNACK_SENT':
+                if self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
 			# This is added only for debug purposes
 			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
 									       self.jsonConfig['state'],

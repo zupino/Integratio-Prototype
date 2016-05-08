@@ -49,7 +49,8 @@ class ConfigExpert(object):
 
     def process(self, rawJson):
         ''' Here the raw Json data from the file is process to 
-        match the processed json structure.'''
+        create a nested json with the test id as the keys for the
+        jsonRegistry'''
         
         self.jsonCopy = copy.deepcopy(rawJson)
         current_key=self.jsonCopy['testID']
@@ -57,6 +58,9 @@ class ConfigExpert(object):
         del self.jsonCopy['testID']
         self.jsonRegistry[current_key]=self.jsonCopy
 
+        # TODO: the logic for the combining the multi-config file
+        # for the same testID must be handled here.
+        
     
     def getRegistry(self):
         return self.jsonRegistry
