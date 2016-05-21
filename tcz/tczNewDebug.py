@@ -49,9 +49,12 @@
 #      t = tcz.TCZee(80, debug=x)
 #      t.run()
 #
+#   Also, remember to block RST packet from the server machine with the following iptable rule
 #
-#   HTTZ branch with new comments, no merged with master
+#	iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP
 #
+#
+
 from scapy.all import *
 # from tcz import TCPConnection
 import time
