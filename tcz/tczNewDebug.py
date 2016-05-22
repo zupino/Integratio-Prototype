@@ -216,12 +216,12 @@ class TCZee(Automaton):
 				(self.lastReceived[TCP].seq == pkt[TCP].seq) and \
 				(self.lastReceived[TCP].payload == pkt[TCP].payload)
 			):
-				print 	"\n\t[isRetr] lastReceived ack: " + str(self.lastReceived[TCP].ack) +\
-					", seq: " + str(self.lastReceived[TCP].seq) +\
-					", payload: \"" + str( self.lastReceived[TCP].payload ) + "\"" 
-			 	print   "\t[isRetr] pkt ack: " + str(pkt[TCP].ack) +\
-                                        ", seq: " + str(pkt[TCP].seq) +\
-                                        ", payload: \"" + str( pkt[TCP].payload ) + "\"\n"
+				#print 	"\n\t[isRetr] lastReceived ack: " + str(self.lastReceived[TCP].ack) +\
+				#	", seq: " + str(self.lastReceived[TCP].seq) +\
+				#	", payload: \"" + str( self.lastReceived[TCP].payload ) + "\"" 
+			 	#print   "\t[isRetr] pkt ack: " + str(pkt[TCP].ack) +\
+                                #        ", seq: " + str(pkt[TCP].seq) +\
+                                #        ", payload: \"" + str( pkt[TCP].payload ) + "\"\n"
 				return True
 			else:
 				return False
@@ -246,7 +246,7 @@ class TCZee(Automaton):
                         #       a re-transmitted packet is received, and this is not 
                         #       the expected behavior.
 			
-			print "\n\tCurrent value for local ACK: " + str( self.curAck ) + "\n"
+			# print "\n\tCurrent value for local ACK: " + str( self.curAck ) + "\n"
 			
 			self.l3[IP].dst = pkt[IP].src
 			self.dport = pkt[TCP].sport
@@ -269,14 +269,14 @@ class TCZee(Automaton):
 						print "\n\tThere is Padding in this packet, so we remove it."
 
 					self.curAck += pkt[TCP].payload.__len__()
-					print "\n\tTempDebug: pkt is different from self.lastReceived: \n\t" + \
-					self.lastReceived.summary() + "\n\t" + \
-					pkt.summary() + "\n\tpkt[TCP].payload.__len__(): " + \
-					str( pkt[TCP].payload.__len__() ) + "\n\tpkt[TCP].payload: \"" + \
-					str( pkt[TCP].payload ) + "\"\n\tself.curAck: " + \
-					str(self.curAck) + "\n\t" + " just added " + str(pkt[TCP].payload.__len__()) + "to it.\n"
-				else:
-					print "\n\tThis is a re-transmitted packet.\n"
+					#print "\n\tTempDebug: pkt is different from self.lastReceived: \n\t" + \
+					#self.lastReceived.summary() + "\n\t" + \
+					#pkt.summary() + "\n\tpkt[TCP].payload.__len__(): " + \
+					#str( pkt[TCP].payload.__len__() ) + "\n\tpkt[TCP].payload: \"" + \
+					#str( pkt[TCP].payload ) + "\"\n\tself.curAck: " + \
+					#str(self.curAck) + "\n\t" + " just added " + str(pkt[TCP].payload.__len__()) + "to it.\n"
+				#else:
+					#print "\n\tThis is a re-transmitted packet.\n"
 					# pass
 
 			if(pkt[TCP].ack > self.curSeq):
