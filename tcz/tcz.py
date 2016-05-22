@@ -50,7 +50,6 @@
 #      t.run()
 #
 #
-#   HTTZ branch with new comments, no merged with master
 #
 from scapy.all import *
 # from tcz import TCPConnection
@@ -268,8 +267,8 @@ class TCZee(Automaton):
 			
 			raise self.ESTABLISHED()
 
-	# Timeout: if I do not receive the ACK after 5 seconds sending the SYN ACK, then I go back to LISTEN
-	@ATMT.timeout(SYNACK_SENT, 5)
+	# Timeout: if I do not receive the ACK after 60 seconds sending the SYN ACK, then I go back to LISTEN
+	@ATMT.timeout(SYNACK_SENT, 60)
 	def timeoutSynAckSent(self): 
 		# We sent the SYN ACK but not received any ACK yet, timer expired --> back to LISTEN"
 		raise self.LISTEN()

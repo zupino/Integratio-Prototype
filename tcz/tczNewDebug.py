@@ -100,22 +100,29 @@ class TCZee(Automaton):
 		self.toSend = ""
 		self.jsonConfig=jsonConfig
 
+		# Keeping track of the last valid packet received
+		self.lastReceived = ""
+
                 # We are assuming here that IntegratioWebServer is listening on wlan0 interface
                 try:
-                        # Just temporary to check on eth0 interface
-			self.myIp = get_ip_address('wlan0')
+                        # TODO 	This step define on which interface (and so IP address) the TCZ will listen
+			#	to. Should not be hardcoded but should be part of the JSON configuration
+			self.myIp = get_ip_address('eth0')
 			#self.myIp = 0
-			#print "MyIP address: " + str(self.myIp)
+			print "MyIP address: " + str(self.myIp)
                 except IOError:
                         self.myIp = 0
                         print "\t[WARNING] 'wlan0' interface not available"
 			print "not possible to get local IP address for master filter."
                         pass
 
-		
+	# TODO 	LOW PRIO Theoretically we can make it more clean by filtering only the packet
+	#	from the TCP stream we are interested in, after completing 3-way handshake, we can
+	#	add to the filter the source and destination TCP port.
+	#	On the other side, we might want to have the TCZ being able to handle more 
+	#	TCP connection in parallel. DESIGN THOUGHT
 	def master_filter(self, pkt):
 		
-        
 		# If I could retrieve my ip address, I use it in master filter, otherwise I do not use it.
 		if self.myIp == 0:
 			# print "myIp is not defined"
@@ -189,12 +196,58 @@ class TCZee(Automaton):
 
 			#self.l3[TCP].seq += len(self.last_packet[TCP].payload)
 			#self.l3[TCP].payload = ""
-	
+
+	# This is a tool method used to recognized if 'pkt'
+	# is a retransmitted packet or not.
+	# This will be useful when we will implement different retransmission policies
+	# for the moment we use to avoid increasing self.ack when we received a retransmitted packet
+	def isRetransmit(self, pkt):
+
+		if(Padding in pkt):
+			pkt[Padding] = None
+		if(Padding in self.lastReceived):
+			self.lastReceived[Padding] = None
+		
+		if (self.lastReceived == ""):
+			return False
+		else:
+			if( 	
+				(self.lastReceived[TCP].ack == pkt[TCP].ack) and \
+				(self.lastReceived[TCP].seq == pkt[TCP].seq) and \
+				(self.lastReceived[TCP].payload == pkt[TCP].payload)
+			):
+				print 	"\n\t[isRetr] lastReceived ack: " + str(self.lastReceived[TCP].ack) +\
+					", seq: " + str(self.lastReceived[TCP].seq) +\
+					", payload: \"" + str( self.lastReceived[TCP].payload ) + "\"" 
+			 	print   "\t[isRetr] pkt ack: " + str(pkt[TCP].ack) +\
+                                        ", seq: " + str(pkt[TCP].seq) +\
+                                        ", payload: \"" + str( pkt[TCP].payload ) + "\"\n"
+				return True
+			else:
+				return False
+		
 
 	# Prepare the internal l3 packet before sending it
 	# based on received packet
 	def preparePkt(self, pkt, flag = 'A'):
 		if(TCP in pkt):
+
+                        # We are assuming this opertion is always called on 
+                        # a reception of a packet. There might be a better
+                        # place for this operation :)
+                        #
+                        # NOTE  marking STATEs as INTERCEPTED looks an interesting
+                        #       point, but I can only see how to do that from the 
+                        #       interctive console with t.STATE.intercepts() and not
+                        #       within the definition
+
+                        # TODO  There might be a problem in case of re-transmitted
+                        #       packets and self.curAck get incremented by 1 everytime
+                        #       a re-transmitted packet is received, and this is not 
+                        #       the expected behavior.
+			
+			print "\n\tCurrent value for local ACK: " + str( self.curAck ) + "\n"
+			
 			self.l3[IP].dst = pkt[IP].src
 			self.dport = pkt[TCP].sport
 			self.l3[TCP].dport = self.dport 
@@ -202,22 +255,37 @@ class TCZee(Automaton):
 
 			if((self.curSeq + self.curAck) == 0):
 				self.curAck = pkt[TCP].seq + 1
-				self.curSeq = 31331	
+				self.curSeq = 31331
+			else:
+				# To avoid increasing the ACK for re-transmitted packets
+				if( not self.isRetransmit(pkt) ):
+					print "\n\tPacket is no retransmitted\n"
+					if (Padding in pkt):
+						# Sometime (I think only in case a slow transmission is detected)
+						# for small payload ( lss than 4 byte) a null Padding is added.
+						# This might be due to the eth HW or TCZ stack, in any case we need
+						# to remove it to avoid miscalculation with the ACK number
+						pkt[Padding] = None
+						print "\n\tThere is Padding in this packet, so we remove it."
 
-			# We are assuming this opertion is always called on 
-			# a reception of a packet. There might be a better
-			# place for this operation :)
-			#
-			# NOTE	marking STATEs as INTERCEPTED looks an interesting
-			#	point, but I can only see how to do that from the 
-			#	interctive console with t.STATE.intercepts() and not
-			#	within the definition
-			self.curAck += pkt[TCP].payload.__len__()
+					self.curAck += pkt[TCP].payload.__len__()
+					print "\n\tTempDebug: pkt is different from self.lastReceived: \n\t" + \
+					self.lastReceived.summary() + "\n\t" + \
+					pkt.summary() + "\n\tpkt[TCP].payload.__len__(): " + \
+					str( pkt[TCP].payload.__len__() ) + "\n\tpkt[TCP].payload: \"" + \
+					str( pkt[TCP].payload ) + "\"\n\tself.curAck: " + \
+					str(self.curAck) + "\n\t" + " just added " + str(pkt[TCP].payload.__len__()) + "to it.\n"
+				else:
+					print "\n\tThis is a re-transmitted packet.\n"
+					# pass
+
 			if(pkt[TCP].ack > self.curSeq):
 				self.curSeq = pkt[TCP].ack
 
 			self.l3[TCP].seq = self.curSeq
 			self.l3[TCP].ack = self.curAck
+
+			self.lastReceived = pkt.copy()
 
 	# BEGIN
 	@ATMT.state(initial=1)
@@ -274,8 +342,8 @@ class TCZee(Automaton):
 			
 			raise self.ESTABLISHED()
 
-	# Timeout: if I do not receive the ACK after 5 seconds sending the SYN ACK, then I go back to LISTEN
-	@ATMT.timeout(SYNACK_SENT, 5)
+	# Timeout: if I do not receive the ACK after 60 seconds sending the SYN ACK, then I go back to LISTEN
+	@ATMT.timeout(SYNACK_SENT, 60)
 	def timeoutSynAckSent(self): 
 		# We sent the SYN ACK but not received any ACK yet, timer expired --> back to LISTEN"
 		raise self.LISTEN()
