@@ -107,7 +107,7 @@ class TCZee(Automaton):
                 try:
                         # TODO 	This step define on which interface (and so IP address) the TCZ will listen
 			#	to. Should not be hardcoded but should be part of the JSON configuration
-			self.myIp = get_ip_address('eth0')
+			self.myIp = get_ip_address('wlan0')
 			#self.myIp = 0
 			print "MyIP address: " + str(self.myIp)
                 except IOError:
