@@ -1,5 +1,5 @@
 from scapy.all import *
-from tcz.tczNewDebug import TCZee
+from lib.tcz import TCZee
 from scapy.all import Automaton
 from functools import wraps
 
