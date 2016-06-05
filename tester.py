@@ -34,7 +34,7 @@ class Tester(object):
         is also part of Issue #5. '''
         for test_id, config in self.configRegistry.iteritems():
             print "Test started for %s"%(test_id)
-            self.currentTest=TCZee(80,
+            self.currentTest=TCZee(config["listeningPort"],
                                    jsonConfig=config,
                                    debug=3)
             self.currentTest.run()
