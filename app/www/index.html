@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!-- meta tags -->
+        <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: gap: https://ssl.gstatic.com 'unsafe-eval'; style-src 'self' 'unsafe-inline'; media-src *">-->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <!-- css -->
+        <link rel="stylesheet" href="bower_components/material-design-lite/material.min.css">
+        <!-- <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"> -->
+        <!-- javascript -->
+        <script src="cordova.js"></script>
+        <script src="bower_components/material-design-lite/material.min.js"></script>
+        <script src="bower_components/jquery/dist/jquery.js"></script>
+        <script src="js/app.js"></script>
+        <!-- title -->
+        <title>Client http testing app</title>
+        <!-- css -->
+        <style type="text/css">
+          html {width: auto; height: auto}
+          body {padding: 10px; overflow: hidden; min-height: auto; width: auto}
+          div {width: 100% !important; text-align: left}
+        </style>
+    </head>
+    <body>
+        <div id="spinner-id">
+          <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+            <input required class="mdl-textfield__input" value="www.github.com" type="text" id="http-request-url-id">
+            <label class="mdl-textfield__label" for="http-request-url-id">Please enter host</label>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <button id="http-request-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+              Load
+            </button>
+          </div> 
+        </div>
+        <div style="margin: 5px; font-size: 12pt">
+          <div id="http-request-id"></div>
+          <div id="loading-id"></div>
+          <div id="socket-response-id"></div>
+          <div id="http-response-id"></div>
+        </div>
+    </body>
+</html>

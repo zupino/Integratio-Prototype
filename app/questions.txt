@@ -1,0 +1,9 @@
+- do we have access to the server code? access-control-allow-origin for xmlhttprequest!
+- design do we have a logo?
+- what should be the default website?                                                                                   
+
+
+- port 80 or field for port?
+- ip address or host
+
+- if you enter 8.8.8.9 etimeout error
