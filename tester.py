@@ -37,7 +37,18 @@ class Tester(object):
             self.currentTest=TCZee(80,
                                    jsonConfig=config,
                                    debug=3)
-            self.currentTest.run()
+	    print "Adding Interception points"
+	    for state, deco_function in self.currentTest.states.iteritems():
+            	if config['state'] == state:
+			self.currentTest.add_interception_points(config['state'])
+            try:
+                self.currentTest.run()
+            except Automaton.InterceptionPoint,Pkt:
+                print "from the runcomponent I am in %s",(self.currentTest.state.state)
+                time.sleep(config['parameter'])
+                self.currentTest.accept_packet(self.currentTest.intercepted_packet)
+	    print "Removing Interception points"
+	    self.currentTest.remove_interception_points(config['state'])
             print "Test completed for %s"%(test_id)
             
 

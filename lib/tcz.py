@@ -315,7 +315,7 @@ class TCZee(Automaton):
 			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
 									       self.jsonConfig['state'],
 									        self.jsonConfig['parameter'])
-			time.sleep(self.jsonConfig['parameter'])
+			# time.sleep(self.jsonConfig['parameter'])
 		self.send(self.last_packet)
 
 
@@ -402,7 +402,7 @@ class TCZee(Automaton):
 			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
 									       self.jsonConfig['state'],
 									       self.jsonConfig['parameter'])
-			time.sleep(self.jsonConfig['parameter'])
+			# time.sleep(self.jsonConfig['parameter'])
                 self.send(self.last_packet)
 
 	
@@ -500,7 +500,7 @@ class TCZee(Automaton):
 			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
 									       self.jsonConfig['state'],
 									       self.jsonConfig['parameter'])
-			time.sleep(self.jsonConfig['parameter'])
+			# time.sleep(self.jsonConfig['parameter'])
 		self.send(self.last_packet)
 
 	# in ESTABLISHED recv() a SYN (basically client want to start a new tcp stream)
@@ -534,7 +534,7 @@ class TCZee(Automaton):
 			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
 									       self.jsonConfig['state'],
 									       self.jsonConfig['parameter'])
-			time.sleep(self.jsonConfig['parameter'])
+			# time.sleep(self.jsonConfig['parameter'])
                 self.send(self.last_packet)
 	
 	@ATMT.receive_condition(ESTABLISHED)
@@ -583,3 +583,4 @@ class TCZee(Automaton):
 #TCZee.graph()
 #t = TCZee(80, debug=3)
 #t.run()
+
