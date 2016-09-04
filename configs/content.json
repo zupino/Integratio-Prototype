@@ -1,0 +1,22 @@
+{
+	"testID" : "CEP Content test case 001",
+	"category" : "content",
+	"state" :"LISTEN",
+	"parameter" : 6,
+	"listeningPort" : 31331,
+	"listeningAddress" : "testing.com",
+	"listeningInterface" : "lo",
+	"resources" : 	[
+				{
+					"resource" 	: "index.html",
+					"body" 		: "This is an example content for index.html",
+					"headers" 	: "Content-tpe: json"
+				},
+				{
+					"resource" 	: "ginger.net",
+					"body" 		: "dofsn sdffsni osono vsno vf",
+					"headers" 	: "Some Headers: eu weo cf"
+				}
+			]
+
+}
