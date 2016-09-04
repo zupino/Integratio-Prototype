@@ -66,6 +66,10 @@ import socket
 import fcntl
 import struct
 
+from Queue import Queue
+from threading import Thread
+
+
 def get_ip_address(ifname):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     return socket.inet_ntoa(fcntl.ioctl(
@@ -78,15 +82,19 @@ def get_ip_address(ifname):
 # '38.113.228.130'
 
 
-
-#conf.L3socket = L3RawSocket
+# With the stunnel configuration, we need again the possibility
+# to work on the loopback interface
+conf.L3socket = L3RawSocket
 
 class TCZee(Automaton):
-	def parse_args(self, sport=80, jsonConfig={}, **kargs):
+	def parse_args(self, jsonConfig={}, **kargs):
 		# DEBUG	
 		#print "[DEBUG] Starting processing parameters"	
 		Automaton.parse_args(self, **kargs)
-		self.sport = sport
+		if 'listeningPort' in jsonConfig:
+			self.sport = int( jsonConfig['listeningPort'] )
+		else:
+			self.sport = 80
 		self.dport = 0
 		self.responseReady = 0
 		self.synAckReady = 0
@@ -96,18 +104,24 @@ class TCZee(Automaton):
 		self.curSeq = 0
 
 		# recv and send buffer to be used by the external     httz component
-		self.recv = ""
+		self.recv = Queue()
 		self.toSend = ""
 		self.jsonConfig=jsonConfig
 
 		# Keeping track of the last valid packet received
 		self.lastReceived = ""
+		
+		if 'listeningInterface' in self.jsonConfig:
 
+			self.interface = str( self.jsonConfig['listeningInterface'] )
+		else:
+			self.interface = ""
+		
                 # We are assuming here that IntegratioWebServer is listening on wlan0 interface
                 try:
                         # TODO 	This step define on which interface (and so IP address) the TCZ will listen
 			#	to. Should not be hardcoded but should be part of the JSON configuration
-			self.myIp = get_ip_address('wlan0')
+			self.myIp = get_ip_address(self.interface)
 			#self.myIp = 0
 			print "MyIP address: " + str(self.myIp)
                 except IOError:
@@ -139,16 +153,19 @@ class TCZee(Automaton):
 	# Definition of the method to access the recv buffer
 	# this is intented to be called by the httz component
 	def receive(self):
-		# This method will consume the available buffer
-		ret = self.recv
-		self.recv = ""
-		return ret
+		# TODO	Need to work on this: if we put here the call to
+		#	Queue.get(), than we have the blocking behavior inside
+		#	TCZ, and we do not want this. For the moment do nothing
+		#	as anyway we are calling Queue.get() from HTTZee
+		
+		return self.recv
 
 	# Definition of the method to check the content of the recv buffer without
 	# consuming it. I should refer to the system socket implementation to check
 	# the proper naming. This does not relly have an equivalent in SOCK_STREAM
 	# C socket programming
 	def read(self):
+		# TODO	Same as for receive()
 		return self.recv
 
 	# Definition of the operation to let external component httz write in 
@@ -169,7 +186,8 @@ class TCZee(Automaton):
 	# 'responseReady' is set)
 
 		if self.toSend.__len__() > 0:
-			self.l3[TCP].payload = self.toSend 
+			self.l3[TCP].payload = self.toSend
+			self.toSend = "" 
 			# Setting the flag is part of the preparation task
 			# self.l3[TCP].flags = 'A'
 			
@@ -179,6 +197,7 @@ class TCZee(Automaton):
 
 			self.last_packet = self.l3
 			self.send(self.last_packet)
+			self.last_packet[TCP].payload = None
 			# TODO  Here I am 'hardcoding' the update of the local SEQ number,
 			#	after sending the response.
 			#       When I am using nc as client, after sending the request,
@@ -259,14 +278,14 @@ class TCZee(Automaton):
 			else:
 				# To avoid increasing the ACK for re-transmitted packets
 				if( not self.isRetransmit(pkt) ):
-					print "\n\tPacket is no retransmitted\n"
+					# print "\n\tPacket is no retransmitted\n"
 					if (Padding in pkt):
 						# Sometime (I think only in case a slow transmission is detected)
 						# for small payload ( lss than 4 byte) a null Padding is added.
 						# This might be due to the eth HW or TCZ stack, in any case we need
 						# to remove it to avoid miscalculation with the ACK number
 						pkt[Padding] = None
-						print "\n\tThere is Padding in this packet, so we remove it."
+						# print "\n\tThere is Padding in this packet, so we remove it."
 
 					self.curAck += pkt[TCP].payload.__len__()
 					#print "\n\tTempDebug: pkt is different from self.lastReceived: \n\t" + \
@@ -310,13 +329,27 @@ class TCZee(Automaton):
 	def send_synack(self):
 		self.l3[TCP].flags = 'SA'
 		self.last_packet = self.l3
-		if self.jsonConfig['category']=='time' and self.jsonConfig['state']=='LISTEN':
+		if self.jsonConfig != {} and self.jsonConfig['category']=='time' and self.jsonConfig['state']=='LISTEN':
 			# This is added only for debug purposes
 			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
 									       self.jsonConfig['state'],
 									        self.jsonConfig['parameter'])
 			time.sleep(self.jsonConfig['parameter'])
-		self.send(self.last_packet)
+
+
+		# Temp workaround: RPi 3 give a problem with the integrated WiFi module, packet is not 
+		#	sent because size is less than 50 B, so I am adding a Padding until I learn how
+		#	to properly fix the RPi issue. 
+		#	NOTE:	Should be possible to avoid the problem also by using an external WiFi dongle.
+		#
+		#	UPDATE:	Removed the workaround, the problem was solved by running 
+		#		sudo rpi-update
+		#	If I understood correct, this updated the Kernel to 4.4, solving the problme with the 
+		#	integrated WiFi driver.
+		
+		# self.last_packet.padding = "0000000000000"		
+
+                self.send(self.last_packet)
 
 
 	# SYNACK_SENT
@@ -343,9 +376,11 @@ class TCZee(Automaton):
 			raise self.ESTABLISHED()
 
 	# Timeout: if I do not receive the ACK after 60 seconds sending the SYN ACK, then I go back to LISTEN
-	@ATMT.timeout(SYNACK_SENT, 60)
+	@ATMT.timeout(SYNACK_SENT, 4)
 	def timeoutSynAckSent(self): 
 		# We sent the SYN ACK but not received any ACK yet, timer expired --> back to LISTEN"
+		self.curAck = 0
+		self.curSeq = 0
 		raise self.LISTEN()
 
 
@@ -397,7 +432,7 @@ class TCZee(Automaton):
 		
 		self.l3[TCP].ack += 1
 		self.last_packet = self.l3
-		if self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
+		if self.jsonConfig != {} and self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
 			# This is added only for debug purposes
 			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
 									       self.jsonConfig['state'],
@@ -445,13 +480,13 @@ class TCZee(Automaton):
 			if pkt[TCP].load : #and (pkt[TCP].load != self.lastHttpRequest) : 
 		
 				# Adding the received load to the recv buffer
-				self.recv += pkt[TCP].load
+				self.recv.put( str( pkt[TCP].load ) )
 
 				# We consume the content of the TCP load
 				# by printing it, until we have an HTTZee to do something
 				# more meaningful with it
-				print "\n[TCP Payload] " + self.receive() 
-				print "\n"
+				#print "\n[TCP Payload] " + self.receive() 
+				#print "\n"
 
 				self.preparePkt(pkt)
 	
@@ -495,7 +530,7 @@ class TCZee(Automaton):
 	def sendAck(self):
 		self.l3[TCP].flags = 'A'
 		self.last_packet = self.l3
-		if self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
+		if self.jsonConfig != {} and self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
 			# This is added only for debug purposes
 			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
 									       self.jsonConfig['state'],
@@ -529,7 +564,7 @@ class TCZee(Automaton):
 	def sendSyn_inEstablished(self):
       		self.l3[TCP].flags = 'SA'
                 self.last_packet = self.l3
-                if self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
+                if self.jsonConfig != {} and self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
 			# This is added only for debug purposes
 			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
 									       self.jsonConfig['state'],
@@ -555,9 +590,15 @@ class TCZee(Automaton):
 	def receive_ack_closing(self, pkt):
 		# Instead of going back to LISTEN I go to the final state to have an exit condition
 		# for the state machine
-		
+		# raise self.LISTEN()
+
 		if (TCP in pkt and (pkt[TCP].flags == 0x10)):
 			raise self.END()
+			# print ""
+			# NOTE:	Go again back to LISTEN, in order to be able to handle several request with the same
+			#	instance of TCZ/HTTZ. If a client sends a request and close the connection when te response
+			#	is received (for example, because of 'Connection: close' header), this will terminate the 
+			#	main script, so a second request will not find anything listening for it.
 		#else:
 		#	# something else received
 		#	# DEBUG
@@ -578,7 +619,93 @@ class TCZee(Automaton):
 	# once the TCP terminate connection is completed
 	@ATMT.state(final=1)
 	def END(self):
-		return "Exiting"
+		raise self.BEGIN()
+
+class HTTZee(object):
+
+	def __init__(self, tcz):
+		# Threading stuff
+		
+		# Prepare a separate thread for the TCZee run
+		httzThread = Thread(target=self.run)
+		httzThread.daemon = True
+		
+
+		tczThread = Thread(target=self.connection)
+		# tczThread.daemon = True
+
+		# Adding a reference to the TCZ used as TCP stack
+		self.tcz = tcz
+
+		self.resources = {}
+		
+
+		body = "Example of Content category TestCase content."
+		bodySize = body.__len__()
+
+		if( tcz.jsonConfig != {} and tcz.jsonConfig['resources'] != "" ):
+
+			for res in self.tcz.jsonConfig['resources']:
+	
+				bodySize = res['body'].__len__()
+
+				# NOTE:	We need to dinamically calculate the size of body and add the Content-length header.
+				# TODO:	For the moment we assume that this header is not in the JSON file, we might
+				#	add a mechanism to check if the header is presentinthe JSON and replace it with the 
+				#	dinamically calculated value.
+				#	Check re module for regular expression (str.replace() does not understand regex)
+				headers = res['headers']
+				headers = headers.rstrip()
+				headers += "\r\nContent-length: " + str(bodySize) + "\r\n\r\n"
+				
+				self.resources[res['resource']] = str(headers + res['body'])
+
+		else:
+			print "[ERROR] HTTZee initialized without correct JSON config file. No resources available."
+			exit() 
+
+
+		tczThread.start()
+		httzThread.start()
+
+	
+	def connection(self):
+		print "\t[HTTZ][connection()] Starting TCZee thread"
+		self.tcz.run()
+
+	def run(self):
+		s = ""
+		print "\t[HTTZ][run()] called TCZee.run(), entering infinite loop now."
+		while ( s != "exit" ):
+			# We will need a call to recv() instead of directly
+			# accessing the TCZ Queue, but for the moment this is
+			# fine. This is a blocking call.
+			s = str( self.tcz.recv.get() )
+			print "\t[HTTZ][run()] Received data: " + s + "\n"
+			self.processRequest(s)
+
+		
+
+	def processRequest(self, req):
+		# TODO	Here we will need the logic to parse the whole HTTP request
+		#	and return the requested resource. This include the logic to
+		#	parse HTTP Header, URL parameters and body.
+		#	No need to re-invent the wheel here, we can use existing libraries.
+		#
+		#	For the sake of the demo, we assume now req contains the whole
+		#	HTTP request
+
+		for p in req.split():
+			if (p in self.resources.keys() ):
+				print "\t[HTTZ][processRequest] Matching resource, sending response: " + self.resources[p]
+				self.tcz.write(self.resources[p])
+				self.tcz.send_response()
+
+		#return self.resources[req]
+
+	
+
+
 
 #TCZee.graph()
 #t = TCZee(80, debug=3)
