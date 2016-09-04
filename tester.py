@@ -1,5 +1,6 @@
 from scapy.all import *
 from lib.tcz import TCZee
+from lib.tcz import HTTZee
 from scapy.all import Automaton
 from functools import wraps
 
@@ -10,15 +11,6 @@ import time
 # To be used when working on local interface l0
 #conf.L3socket = L3RawSocket
 sys.path.append('.')
-
-#log_scapy = logging.getLogger("scapy")
-#console_handler = logging.StreamHandler()
-#console_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-#log_scapy.addHandler(console_handler)
-#log_runtime = logging.getLogger("scapy.runtime")          # logs at runtime
-#log_runtime.addFilter(ScapyFreqFilter())
-#log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions
-#log_loading = logging.getLogger("scapy.loading")          # logs when loading scapy
 
 class Tester(object):
     
@@ -33,12 +25,23 @@ class Tester(object):
         configuration folder and calls the jsonParse function in loops. This 
         is also part of Issue #5. '''
         for test_id, config in self.configRegistry.iteritems():
-            print "Test started for %s"%(test_id)
-            self.currentTest=TCZee(config["listeningPort"],
-                                   jsonConfig=config,
-                                   debug=3)
-            self.currentTest.run()
-            print "Test completed for %s"%(test_id)
+
+		if( config != {} and config['category']=='time' ):
+			print "[time] Test started for %s"%(test_id)
+        	    	self.currentTest=TCZee(
+                	                   jsonConfig=config,
+                        	           debug=3)
+	            	self.currentTest.run()
+        	    	print "[time] Test completed for %s"%(test_id)
+		elif ( config != {} and config['category'] == 'content' ):
+			print "[content] Test started for %s"%(test_id)
+			t = TCZee(jsonConfig = config, debug = 3)
+			self.currentTest = HTTZee(t)
+			print "[content] Test completed for %s"%(test_id)
+
+
+		else:
+			print "JSON Config file empty or no valid test category."
             
 
 class ConfigExpert(object):
