@@ -3,14 +3,14 @@
 	"category" : "content",
 	"state" :"LISTEN",
 	"parameter" : 6,
-	"listeningPort" : 31331,
+	"listeningPort" : 80,
 	"listeningAddress" : "testing.com",
-	"listeningInterface" : "lo",
+	"listeningInterface" : "wlan0",
 	"resources" : 	[
 				{
-					"resource" 	: "index.html",
+					"resource" 	: "/index.html",
 					"body" 		: "This is an example content for index.html",
-					"headers" 	: "Content-tpe: json"
+					"headers" 	: "HTTP/1.1 200 OK\r\nServer: Apache/2.2.14 (Win32)\r\nConnection: Closed"
 				},
 				{
 					"resource" 	: "ginger.net",
