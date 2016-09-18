@@ -696,9 +696,15 @@ class HTTZee(object):
 		#	HTTP request
 
 		for p in req.split():
+                        print "\t[HTTZ] spliting request:" + p
 			if (p in self.resources.keys() ):
 				print "\t[HTTZ][processRequest] Matching resource, sending response: " + self.resources[p]
 				self.tcz.write(self.resources[p])
+                                # Added by bdesikan on 18-Sep-16 during debug session
+                                # Temporary Patch to fix the mismatch in th Ack number 
+                                # due to synchronization issue between the TCZ and HTTZ components.
+                                #TODO: Fix using robust approah
+                                time.sleep(1)
 				self.tcz.send_response()
 
 		#return self.resources[req]
