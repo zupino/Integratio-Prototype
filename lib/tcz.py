@@ -65,6 +65,7 @@ from functools import wraps
 import socket
 import fcntl
 import struct
+import threading
 
 from Queue import Queue
 from threading import Thread
@@ -87,8 +88,8 @@ def get_ip_address(ifname):
 conf.L3socket = L3RawSocket
 
 class TCZee(Automaton):
-	def parse_args(self, jsonConfig={}, **kargs):
-		# DEBUG	
+        def parse_args(self, jsonConfig={}, **kargs):
+                # DEBUG	
 		#print "[DEBUG] Starting processing parameters"	
 		Automaton.parse_args(self, **kargs)
 		if 'listeningPort' in jsonConfig:
@@ -102,6 +103,12 @@ class TCZee(Automaton):
 
 		self.curAck = 0
 		self.curSeq = 0
+
+                # BD:28-09-16 #Issue16 
+                # Handling multi TCP conn using dictionary for holding the
+                # curAck and curSeq states.
+                self.curAckHash={}
+                self.curSeqHash={}
 
 		# recv and send buffer to be used by the external     httz component
 		self.recv = Queue()
@@ -192,8 +199,13 @@ class TCZee(Automaton):
 			# self.l3[TCP].flags = 'A'
 			
 			# Handling of ACK and SEQ numbers
-			self.l3[TCP].seq = self.curSeq
-			self.l3[TCP].ack = self.curAck
+			# self.l3[TCP].seq = self.curSeq
+			# self.l3[TCP].ack = self.curAck
+
+                        # BD:28-09-16 Issue#16 - fetching appropriate curSeq and curAck 
+                        # from cache based on the dport in packet.
+                        self.l3[TCP].seq = self.curSeqHash[self.l3[TCP].dport]
+                        self.l3[TCP].ack = self.curAckHash[self.l3[TCP].dport]
 
 			self.last_packet = self.l3
 			self.send(self.last_packet)
@@ -272,6 +284,10 @@ class TCZee(Automaton):
 			self.l3[TCP].dport = self.dport 
 			self.l3[TCP].sport = pkt[TCP].dport
 
+                        # BD:28-09-16 Issue#16 - fetching the curAck, curSeq from cache.
+                        self.curSeq = self.curSeqHash[self.dport]
+                        self.curAck = self.curAckHash[self.dport]
+
 			if((self.curSeq + self.curAck) == 0):
 				self.curAck = pkt[TCP].seq + 1
 				self.curSeq = 31331
@@ -300,9 +316,13 @@ class TCZee(Automaton):
 
 			if(pkt[TCP].ack > self.curSeq):
 				self.curSeq = pkt[TCP].ack
-
+                                
 			self.l3[TCP].seq = self.curSeq
 			self.l3[TCP].ack = self.curAck
+
+                        # BD:28-09-16 Issue#16 - storing the new curAck, curSeq to cache.
+                        self.curSeqHash[self.dport] = self.curSeq
+                        self.curAckHash[self.dport] = self.curAck
 
 			self.lastReceived = pkt.copy()
 
@@ -322,6 +342,11 @@ class TCZee(Automaton):
 	def receive_syn(self, pkt):
 		# Checking if what I got is a SYN
 		if (TCP in pkt and (pkt[TCP].flags == 0x02)):
+                        # BD:28-09-16 Issue#16
+                        # Adding client port as key to dictionary
+                        self.curAckHash[pkt[TCP].sport]=0
+                        self.curSeqHash[pkt[TCP].sport]=0
+
 			self.preparePkt(pkt)
 			raise self.SYNACK_SENT()
 
@@ -381,6 +406,9 @@ class TCZee(Automaton):
 		# We sent the SYN ACK but not received any ACK yet, timer expired --> back to LISTEN"
 		self.curAck = 0
 		self.curSeq = 0
+
+                #TODO: BD:28-09-16 Issue#16 - delete the unnecessary keys to keep the cache small.
+                
 		raise self.LISTEN()
 
 
@@ -636,7 +664,7 @@ class HTTZee(object):
 
 		# Adding a reference to the TCZ used as TCP stack
 		self.tcz = tcz
-
+                self.lock = threading.Lock()
 		self.resources = {}
 		
 
@@ -680,9 +708,13 @@ class HTTZee(object):
 			# We will need a call to recv() instead of directly
 			# accessing the TCZ Queue, but for the moment this is
 			# fine. This is a blocking call.
+                        self.lock.acquire()
+                        print 'lock acquired by %s' %threading.current_thread().name
 			s = str( self.tcz.recv.get() )
 			print "\t[HTTZ][run()] Received data: " + s + "\n"
 			self.processRequest(s)
+                        print 'lock released by %s' % threading.current_thread().name
+                        self.lock.release()
 
 		
 
