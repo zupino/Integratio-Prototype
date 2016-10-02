@@ -86,20 +86,34 @@ def get_ip_address(ifname):
 # to work on the loopback interface
 conf.L3socket = L3RawSocket
 
-class TCZee(Automaton):
-	def parse_args(self, jsonConfig={}, **kargs):
-		# DEBUG	
-		#print "[DEBUG] Starting processing parameters"	
-		Automaton.parse_args(self, **kargs)
-		if 'listeningPort' in jsonConfig:
-			self.sport = int( jsonConfig['listeningPort'] )
-		else:
-			self.sport = 80
-		self.dport = 0
-		self.responseReady = 0
-		self.synAckReady = 0
-		self.myIp = 0
+# return a list of flag 'chars' given an int
+# (p[TCP].flags)
+def flags(p):
+    flagSeq = ['F', 'S', 'R', 'P', 'A', 'U', 'E', 'C']
+    f = []
+    c = 1
+    
+    for i in range(0,8):
+        if(p & c):
+            f.append(flagSeq[i])
+        c = c << 1    
+    return f
 
+class TCZee(Automaton):
+	def parse_args(self, jsonConfig={}, pkt = IP(), **kargs):
+		# DEBUG	
+		#print "[DEBUG] Starting processing parameters"
+		Automaton.parse_args(self, **kargs)
+		
+	        self.initSYN = pkt
+        	if 'listeningPort' in jsonConfig:
+			self.localPort = int( jsonConfig['listeningPort'] )
+		else:
+			self.localPort = 80
+		
+	        self.remotePort = self.initSYN[TCP].sport
+	        self.remoteAddr = self.initSYN[IP].src
+        
 		self.curAck = 0
 		self.curSeq = 0
 
@@ -112,43 +126,38 @@ class TCZee(Automaton):
 		self.lastReceived = ""
 		
 		if 'listeningInterface' in self.jsonConfig:
-
 			self.interface = str( self.jsonConfig['listeningInterface'] )
 		else:
-			self.interface = ""
-		
+			self.interface = "wlan0"
                 # We are assuming here that IntegratioWebServer is listening on wlan0 interface
                 try:
-                        # TODO 	This step define on which interface (and so IP address) the TCZ will listen
-			#	to. Should not be hardcoded but should be part of the JSON configuration
-			self.myIp = get_ip_address(self.interface)
+                    	# TODO 	This step define on which interface (and so IP address) the TCZ will listen
+                    	#	to. Should not be hardcoded but should be part of the JSON configuration  
+                    	self.localAddr = get_ip_address(self.interface)
 			#self.myIp = 0
-			print "MyIP address: " + str(self.myIp)
+			print "MyIP address: " + str(self.localAddr)
                 except IOError:
-                        self.myIp = 0
+                        self.localAddr = 0
                         print "\t[WARNING] 'wlan0' interface not available"
-			print "not possible to get local IP address for master filter."
+                        print "not possible to get local IP address for master filter."
                         pass
 
-	# TODO 	LOW PRIO Theoretically we can make it more clean by filtering only the packet
-	#	from the TCP stream we are interested in, after completing 3-way handshake, we can
-	#	add to the filter the source and destination TCP port.
-	#	On the other side, we might want to have the TCZ being able to handle more 
-	#	TCP connection in parallel. DESIGN THOUGHT
+	# With new architecture, we are handling now multiple TCP connection,
+    # but only 1 per TCZee instance. So the master filter should only
+    # get the TCP packets from this stream.
 	def master_filter(self, pkt):
-		
-		# If I could retrieve my ip address, I use it in master filter, otherwise I do not use it.
-		if self.myIp == 0:
+		if self.localAddr == 0:
 			# print "myIp is not defined"
 			return 	( IP in pkt and TCP in pkt \
-				and pkt[TCP].dport == self.sport \
+				and pkt[TCP].dport == self.localPort \
+        		        and pkt[TCP].sport == self.remotePort
 				)
 		else:
-		# print "myIp is defined"
 			return 	( IP in pkt and TCP in pkt \
-					and pkt[IP].dst == self.myIp \
-					and pkt[TCP].dport == self.sport \
-			)
+				and pkt[IP].dst == self.localAddr \
+				and pkt[TCP].dport == self.localPort \
+                 		and pkt[TCP].sport == self.remotePort
+				)
 
 	# Definition of the method to access the recv buffer
 	# this is intented to be called by the httz component
@@ -251,20 +260,20 @@ class TCZee(Automaton):
 	def preparePkt(self, pkt, flag = 'A'):
 		if(TCP in pkt):
 
-                        # We are assuming this opertion is always called on 
-                        # a reception of a packet. There might be a better
-                        # place for this operation :)
-                        #
-                        # NOTE  marking STATEs as INTERCEPTED looks an interesting
-                        #       point, but I can only see how to do that from the 
-                        #       interctive console with t.STATE.intercepts() and not
-                        #       within the definition
+            # We are assuming this opertion is always called on 
+            # a reception of a packet. There might be a better
+            # place for this operation :)
+            #
+            # NOTE  marking STATEs as INTERCEPTED looks an interesting
+            #       point, but I can only see how to do that from the 
+            #       interctive console with t.STATE.intercepts() and not
+            #       within the definition
 
-                        # TODO  There might be a problem in case of re-transmitted
-                        #       packets and self.curAck get incremented by 1 everytime
-                        #       a re-transmitted packet is received, and this is not 
-                        #       the expected behavior.
-			
+            # TODO  There might be a problem in case of re-transmitted
+            #       packets and self.curAck get incremented by 1 everytime
+            #       a re-transmitted packet is received, and this is not 
+            #       the expected behavior.
+
 			# print "\n\tCurrent value for local ACK: " + str( self.curAck ) + "\n"
 			
 			self.l3[IP].dst = pkt[IP].src
@@ -288,15 +297,6 @@ class TCZee(Automaton):
 						# print "\n\tThere is Padding in this packet, so we remove it."
 
 					self.curAck += pkt[TCP].payload.__len__()
-					#print "\n\tTempDebug: pkt is different from self.lastReceived: \n\t" + \
-					#self.lastReceived.summary() + "\n\t" + \
-					#pkt.summary() + "\n\tpkt[TCP].payload.__len__(): " + \
-					#str( pkt[TCP].payload.__len__() ) + "\n\tpkt[TCP].payload: \"" + \
-					#str( pkt[TCP].payload ) + "\"\n\tself.curAck: " + \
-					#str(self.curAck) + "\n\t" + " just added " + str(pkt[TCP].payload.__len__()) + "to it.\n"
-				#else:
-					#print "\n\tThis is a re-transmitted packet.\n"
-					# pass
 
 			if(pkt[TCP].ack > self.curSeq):
 				self.curSeq = pkt[TCP].ack
@@ -306,84 +306,39 @@ class TCZee(Automaton):
 
 			self.lastReceived = pkt.copy()
 
-	# BEGIN
-	@ATMT.state(initial=1)
+
+    	@ATMT.state(initial=1)
 	def BEGIN(self):
 		self.l3 = IP()/TCP()
-		#self.lastHttpRequest = ""
-		raise  self.LISTEN()
-	
-	# LISTEN
-	@ATMT.state()
-	def LISTEN(self):
-		pass
-
-	@ATMT.receive_condition(LISTEN)
-	def receive_syn(self, pkt):
-		# Checking if what I got is a SYN
-		if (TCP in pkt and (pkt[TCP].flags == 0x02)):
-			self.preparePkt(pkt)
-			raise self.SYNACK_SENT()
-
-	@ATMT.action(receive_syn)
-	def send_synack(self):
-		self.l3[TCP].flags = 'SA'
-		self.last_packet = self.l3
-		if self.jsonConfig != {} and self.jsonConfig['category']=='time' and self.jsonConfig['state']=='LISTEN':
-			# This is added only for debug purposes
-			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
-									       self.jsonConfig['state'],
-									        self.jsonConfig['parameter'])
-			time.sleep(self.jsonConfig['parameter'])
-
-
-		# Temp workaround: RPi 3 give a problem with the integrated WiFi module, packet is not 
-		#	sent because size is less than 50 B, so I am adding a Padding until I learn how
-		#	to properly fix the RPi issue. 
-		#	NOTE:	Should be possible to avoid the problem also by using an external WiFi dongle.
-		#
-		#	UPDATE:	Removed the workaround, the problem was solved by running 
-		#		sudo rpi-update
-		#	If I understood correct, this updated the Kernel to 4.4, solving the problme with the 
-		#	integrated WiFi driver.
+        	self.preparePkt(self.initSYN)
+        
+        	self.l3[TCP].flags = 'SA'
+        	self.send(self.l3)
+        
+        	raise  self.SYNACK_SENT()
 		
-		# self.last_packet.padding = "0000000000000"		
-
-                self.send(self.last_packet)
-
-
-	# SYNACK_SENT
 	@ATMT.state()
 	def SYNACK_SENT(self):
 		pass
 
+	
 	@ATMT.receive_condition(SYNACK_SENT)
 	def receive_ackForSyn(self, pkt):
-		
-		# Check if I get an ACK (0x10)
-		# TODO 	A check on received pkt ACK and SEQ number would make sense,
-		#	to avoid any ACK to trigger this 
-		# 	condition
-		# -->	For the moment I add a check on the pkt source port, so basically
-		#	I am making the engine handling 1 TCP STREAM
-		#	per time, that is not necessarly a bad think.
-		#	This will avoid also that re-transmitted packet from other stream
-		#	to mess-up the status of the server
-
-		if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags & 0x10):
+		if 'A' in flags(pkt[TCP].flags):
 			self.preparePkt(pkt)
-			
 			raise self.ESTABLISHED()
 
-	# Timeout: if I do not receive the ACK after 60 seconds sending the SYN ACK, then I go back to LISTEN
+	# Timeout: if I do not receive the ACK after 60 seconds sending the SYN ACK,
+	# I go back to BEGIN (send again the SYN)
+	# TODO this might be a good place to implement a retransmission logic, 
+	# for the moment it just keep tryin
 	@ATMT.timeout(SYNACK_SENT, 4)
 	def timeoutSynAckSent(self): 
-		# We sent the SYN ACK but not received any ACK yet, timer expired --> back to LISTEN"
+        
 		self.curAck = 0
 		self.curSeq = 0
-		raise self.LISTEN()
-
-
+		raise self.BEGIN()
+    
 	@ATMT.state()
 	def ESTABLISHED(self):
 		pass
@@ -392,6 +347,7 @@ class TCZee(Automaton):
 	# code should look better and TCZee.graph() would return a meaningful state chart diagram
 
 	# in ESTABLISHED recv() FIN/ACK
+	
 	@ATMT.receive_condition(ESTABLISHED)
 	def receive_finAck(self, pkt):
 		# Check if the packet we got is a FIN/ACK 
@@ -421,6 +377,7 @@ class TCZee(Automaton):
 	# The action before transition to CLOSING is the send of FIN/ACK, that was before 
 	# part of the receive_finAck condition
 
+	
 	@ATMT.action(receive_finAck)
 	def send_finAck(self):
 		self.l3[TCP].flags = 'FA'
@@ -443,6 +400,7 @@ class TCZee(Automaton):
 	
 	# Second condition based on split of ESTABLISHED receive data cases
 	# in ESTABLISHED recv() PSH/ACK
+	
 	@ATMT.receive_condition(ESTABLISHED)
 	def receive_pshAck(self, pkt):
 
@@ -526,6 +484,7 @@ class TCZee(Automaton):
 
 				raise self.ESTABLISHED()
 
+	
 	@ATMT.action(receive_pshAck)
 	def sendAck(self):
 		self.l3[TCP].flags = 'A'
@@ -539,38 +498,7 @@ class TCZee(Automaton):
 		self.send(self.last_packet)
 
 	# in ESTABLISHED recv() a SYN (basically client want to start a new tcp stream)
-	@ATMT.receive_condition(ESTABLISHED)	
-	def receive_synInEstablished(self, pkt):
-		# For this receive condition I do not check the source port, because if I get a SYN
-		# while in ESTABLISHED, it might be the client trying to open a new tcp strem
-		# TODO 	Check if in this multi tcp stream handling approach is correct or if we should
-		#	simply put a timer for the ESTABLISHED state and let the state
-		#	machine going back to LISTEN after sending the response
-		#	We should check the "Keep Alive" header...
-
-		if TCP in pkt and (pkt[TCP].flags == 0x02) :
-			self.preparePkt(pkt)
-			self.l3[TCP].seq = 0
-			self.l3[TCP].ack = pkt[TCP].seq + 1
-
-			# We have a new TCP stream!
-			self.l3[TCP].dport = pkt[TCP].sport
-			self.dport = pkt[TCP].sport
-
-			self.l3[TCP].payload = ""
-			raise self.SYNACK_SENT()
-
-	@ATMT.action(receive_synInEstablished)
-	def sendSyn_inEstablished(self):
-      		self.l3[TCP].flags = 'SA'
-                self.last_packet = self.l3
-                if self.jsonConfig != {} and self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
-			# This is added only for debug purposes
-			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
-									       self.jsonConfig['state'],
-									       self.jsonConfig['parameter'])
-			time.sleep(self.jsonConfig['parameter'])
-                self.send(self.last_packet)
+	
 	
 	@ATMT.receive_condition(ESTABLISHED)
 	def receive_ackInEstablished(self, pkt):
@@ -580,12 +508,14 @@ class TCZee(Automaton):
 		else:
 			pass
 
+	
 	@ATMT.state() # Final just for the moment to avoid the warning
 	def CLOSING(self):
 		#DEBUG 
 		#print "[DEBUG] entering [CLOSING]"
 		print ""
 			
+	
 	@ATMT.receive_condition(CLOSING)
 	def receive_ack_closing(self, pkt):
 		# Instead of going back to LISTEN I go to the final state to have an exit condition
@@ -607,6 +537,7 @@ class TCZee(Automaton):
 	# After timeout in CLOSING, terminate (basically only one FIN from
 	# the client is enough to close connection
 	# TODO	THIS IS WRONG!
+	
 	@ATMT.timeout(CLOSING, 5)
 	def timeoutClosing(self):
 		self.l3[TCP].ack = 0
@@ -617,10 +548,12 @@ class TCZee(Automaton):
 
 	# This is simply a final state to have an exit condition
 	# once the TCP terminate connection is completed
+	
 	@ATMT.state(final=1)
 	def END(self):
-		raise self.BEGIN()
+		pass
 
+        
 class HTTZee(object):
 
 	def __init__(self, tcz):
@@ -696,7 +629,7 @@ class HTTZee(object):
 		#	HTTP request
 
 		for p in req.split():
-                        print "\t[HTTZ] spliting request:" + p
+                        # print "\t[HTTZ] spliting request:" + p
 			if (p in self.resources.keys() ):
 				print "\t[HTTZ][processRequest] Matching resource, sending response: " + self.resources[p]
 				self.tcz.write(self.resources[p])
@@ -716,3 +649,82 @@ class HTTZee(object):
 #TCZee.graph()
 #t = TCZee(80, debug=3)
 #t.run()
+
+class Connector(Automaton):
+	def parse_args(self, jsonConfig={}, **kargs):
+        	Automaton.parse_args(self, **kargs)
+	        self.config = jsonConfig
+
+		# set listening port
+		if 'listeningPort' in jsonConfig:
+                        self.localPort = int( jsonConfig['listeningPort'] )
+                else:
+                        self.localPort = 80
+		
+		# TODO This is duplicate code, we can keep it only in the connector
+                # and reference the local ip inform from the Connector in TCZee
+                if 'listeningInterface' in self.config:
+                        self.interface = str( self.config['listeningInterface'] )
+                else:
+                        self.interface = "wlan0"
+                # We are assuming here that IntegratioWebServer is listening on wlan0 interface
+                try:
+                        # TODO  This step define on which interface (and so IP address) the TCZ will listen
+                        #       to. Should not be hardcoded but should be part of the JSON configuration  
+                        self.localAddr = get_ip_address(self.interface)
+                        #self.myIp = 0
+                        print "MyIP address: " + str(self.localAddr)
+                except IOError:
+                        self.localAddr = 0
+                        print "\t[WARNING] 'wlan0' interface not available"
+                        print "not possible to get local IP address for master filter."
+                        pass
+		
+        	self.connections = []
+                
+		# check only matching incoming packets
+	def master_filter(self, pkt):
+        	if (self.localAddr != 0):
+			return  ( IP in pkt and TCP in pkt \
+        	                and pkt[IP].dst == self.localAddr \
+                                and pkt[TCP].dport == self.localPort
+                                )
+		else:
+			return  ( IP in pkt and TCP in pkt \
+                                and pkt[TCP].dport == self.localPort
+                                )
+
+    	# BEGIN state
+	@ATMT.state(initial=1)
+	def BEGIN(self):
+        	raise self.LISTEN()
+
+	@ATMT.state()
+	def LISTEN(self):
+        	pass
+
+	@ATMT.receive_condition(LISTEN)
+	def receive_syn(self, pkt):
+        	if('S' in flags(pkt[TCP].flags)):
+			tcz = TCZee(self.config, pkt, debug=3)
+	            	httz = HTTZee(tcz)
+        	    	self.connections.append(httz)
+            		# TODO here we create a new instance of 
+	            	# HTTZee (that contains a TCZee).
+        	   	 #
+            		# 1. TCZee need to start from SYN_ACK sent state
+            		#
+	            	# 2. TCZee master_filter should be change to accept
+        	    	#    only packet that belongs to his connection
+            		#
+	            	# 3. Connector needs to keep track of current open
+        	    	#    connections and avoid create new Thread for 
+            		#    re-transmitted packets.
+	            	#
+        	    	# 4. When connection is closed, HTTZ Thread should die
+            		#    and notify Connector
+                   
+		raise self.LISTEN()
+            
+            
+            

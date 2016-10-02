@@ -1,6 +1,7 @@
 from scapy.all import *
 from lib.tcz import TCZee
 from lib.tcz import HTTZee
+from lib.tcz import Connector
 from scapy.all import Automaton
 from functools import wraps
 
@@ -35,8 +36,8 @@ class Tester(object):
         	    	print "[time] Test completed for %s"%(test_id)
 		elif ( config != {} and config['category'] == 'content' ):
 			print "[content] Test started for %s"%(test_id)
-			t = TCZee(jsonConfig = config, debug = 3)
-			self.currentTest = HTTZee(t)
+			self.currentTest = Connector(config, debug=3)
+			self.currentTest.run()
 			print "[content] Test completed for %s"%(test_id)
 
 
