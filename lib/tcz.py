@@ -637,7 +637,7 @@ class HTTZee(object):
                                 # Temporary Patch to fix the mismatch in th Ack number 
                                 # due to synchronization issue between the TCZ and HTTZ components.
                                 #TODO: Fix using robust approah
-                                time.sleep(1)
+                                # time.sleep(1)
 				self.tcz.send_response()
 
 		#return self.resources[req]
@@ -706,6 +706,8 @@ class Connector(Automaton):
 	@ATMT.receive_condition(LISTEN)
 	def receive_syn(self, pkt):
         	if('S' in flags(pkt[TCP].flags)):
+			# tcz = TCZee(self.config, pkt, debug=3)
+			# Check impact of DEBUG messages on performances
 			tcz = TCZee(self.config, pkt, debug=3)
 	            	httz = HTTZee(tcz)
         	    	self.connections.append(httz)

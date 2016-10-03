@@ -30,8 +30,9 @@ class Tester(object):
 		if( config != {} and config['category']=='time' ):
 			print "[time] Test started for %s"%(test_id)
         	    	self.currentTest=TCZee(
-                	                   jsonConfig=config,
-                        	           debug=3)
+                	                   jsonConfig=config, debug=3)
+			# Removed debug messages to check impact on performances
+
 	            	self.currentTest.run()
         	    	print "[time] Test completed for %s"%(test_id)
 		elif ( config != {} and config['category'] == 'content' ):
