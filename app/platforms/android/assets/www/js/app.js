@@ -7,32 +7,59 @@ $( document ).ready(function() {
 	$('#http-request-button').click(function() {
 
 		var url = $('#http-request-url-id').val();
-		$('#http-request-id').html('<b>Host Request:</b> ' + url);
+		var port = $('#http-request-port-id').val();
 
-		$('#socket-response-id').html('<b>Socket Response:</b><span style="color:red"> please wait while loading</span>');
+		if(!port) {port=80;}
+		if(!url) {url='www.github.com';}
+
+		$('.server-class').html('<b>Server:</b> ' + url + ':' + port);
+
+        $('#socket-response-id').html('<b>Response:</b><span style="color:red"> please wait while loading</span>');
+
+		var socketStarttime = new Date().getTime(); // for duration
+		var dt = new Date(); // for pretty timestamp
+		var time = dt.getHours() + ":" + dt.getMinutes() + ":" + dt.getSeconds();
+		$('#socket-start-time-id').html('<b>Start:</b> ' + time);
 
 		var socket = new Socket();
 		socket.open(
 		  url,
-		  80,
+		  port,
 		  function() {
-			$('#socket-response-id').html('<b>Socket Response:</b> none (success)' ); 
+			$('#socket-response-id').html('<b>Response:</b> none (success)' );
+			var endTime = new Date().getTime();
+			var totalTime = endTime - socketStarttime;
+			$('#socket-duration-time-id').html('<b>Duration:</b> ' + totalTime/1000 + ' seconds');
 		  },
 		  function(errorMessage) {
-			$('#socket-response-id').html('<b>Socket Response:</b> ' + errorMessage);   
+			$('#socket-response-id').html('<b>Response:</b> ' + errorMessage);
+			var endTime = new Date().getTime();
+			var totalTime = endTime - socketStarttime;
+			$('#socket-duration-time-id').html('<b>Duration:</b> ' + totalTime/1000 + ' seconds');
 		});
+
+		// HTTZ Request
+		$('#http-response-id').html('<b>HTTZ Response:</b><span style="color:red"> please wait while loading</span>');
+		var httpStarttime = new Date().getTime(); // for duration
+		var dt = new Date(); // for pretty timestamp
+		var time = dt.getHours() + ":" + dt.getMinutes() + ":" + dt.getSeconds();
+		$('#http-start-time-id').html('<b>Start:</b> ' + time);
 
 		$.ajax({
 		    url: 'http://'+url,
 		    type: 'get',
 		    crossDomain: true,
 		    datatype: 'application/json',
-		    success: function (resp) {
-		      $('#http-response-id').html('<b>HTTP Response:</b> 200' + '<br><b>HTTP Text:</b> success' );   
+		    success: function (data, textStatus, request) {
+		      $('#http-response-id').html('<b>Code:</b>: ' + request.getResponseHeader('status'));   
 		    },
-		    error: function(e) {
-				$('#http-response-id').html('<b>HTTP Status:</b> ' + e.status + '<br><b>HTTP Text:</b> ' + e.statusText );   
+		    error: function(data, textStatus, e) {
+				$('#http-response-id').html('<b>Status:</b> ' + e.status + '<br><b>HTTP Text:</b> ' + e.statusText);   
 			}  
+		}).done(function() {
+			var endTime = new Date().getTime();
+			var totalTime = endTime - httpStarttime;
+			$('#http-duration-time-id').html('<b>Duration:</b> ' + totalTime/1000 + ' seconds');
 		});
 
 	});

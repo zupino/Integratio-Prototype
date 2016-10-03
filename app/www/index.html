@@ -19,26 +19,44 @@
           html {width: auto; height: auto}
           body {padding: 10px; overflow: hidden; min-height: auto; width: auto}
           div {width: 100% !important; text-align: left}
+          h5 {margin: 10px 0px; font-size: 12pt}
         </style>
     </head>
     <body>
         <div id="spinner-id">
           <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
             <input required class="mdl-textfield__input" value="www.github.com" type="text" id="http-request-url-id">
-            <label class="mdl-textfield__label" for="http-request-url-id">Please enter host</label>
+            <label class="mdl-textfield__label" for="http-request-url-id">Please enter host (default github.com)</label>
+          </div>
+
+          <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+            <input required class="mdl-textfield__input" value="80" type="text" id="http-request-port-id">
+            <label class="mdl-textfield__label" for="http-request-port-id">Please enter port (default 80)</label>
           </div>
 
           <div style="margin-bottom: 20px;">
-            <button id="http-request-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
-              Load
+            <button style="width: 100%" id="http-request-button" class="mdl-button mdl-js-button mdl-button--raised mdl-button--colored">
+              HTTZ Request / TCZ Connection
             </button>
           </div> 
         </div>
         <div style="margin: 5px; font-size: 12pt">
-          <div id="http-request-id"></div>
-          <div id="loading-id"></div>
+
+          <hr>
+          
+          <h5>Open Socket/TCZ</h5>
+          <div id="socket-start-time-id"></div>
+          <div class="server-class"></div>
           <div id="socket-response-id"></div>
+          <div id="socket-duration-time-id"></div>
+
+          <hr>
+
+          <h5>Open Socket/TCZ + HTTZ Request</h5>
+          <div id="http-start-time-id"></div>
+          <div class="server-class"></div>
           <div id="http-response-id"></div>
+          <div id="http-duration-time-id"></div>          
         </div>
     </body>
 </html>
