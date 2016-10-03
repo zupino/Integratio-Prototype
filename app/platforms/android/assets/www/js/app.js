@@ -51,7 +51,7 @@ $( document ).ready(function() {
 		    crossDomain: true,
 		    datatype: 'application/json',
 		    success: function (data, textStatus, request) {
-		      $('#http-response-id').html('<b>Code:</b>: ' + request.getResponseHeader('status'));   
+		      $('#http-response-id').html('<b>Code:</b>: ' + request.getResponseHeader('status') + ' ' + textStatus);   
 		    },
 		    error: function(data, textStatus, e) {
 				$('#http-response-id').html('<b>Status:</b> ' + e.status + '<br><b>HTTP Text:</b> ' + e.statusText);   
