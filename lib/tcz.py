@@ -549,7 +549,7 @@ class TCZee(Automaton):
         self.l3[TCP].seq = 0
         self.l3[TCP].payload = ""
         self.last_packet = self.l3
-        raise self.LISTEN()
+        raise self.END()
 
     # This is simply a final state to have an exit condition
     # once the TCP terminate connection is completed
@@ -561,34 +561,15 @@ class TCZee(Automaton):
         
 class HTTZee(object):
 
-    def __init__(self, tcz, status_http):
+    def __init__(self, tcz):
         # Threading stuff
-        
-        # Prepare a separate thread for the TCZee run
-        httzThread = Thread(target=self.run)
-        httzThread.daemon = True
-        
-
-        tczThread = Thread(target=self.connection)
-        # tczThread.daemon = True
 
         # Adding a reference to the TCZ used as TCP stack
         self.tcz = tcz
 
         self.resources = {}
         
-        # BD: issue#17: To handle threading for both time and content category
-        # Always a httz object is created and in case of time category a 
-        # status_http flag of 0 is passed to the HTTZ to have a dummy http component 
-        # but in the content category n actual HTTP component is created. In this 
-        # way threading is handled for both category. 
-        self.status_http = status_http
-
-        if status_http:
-            self.createHTTZ(tcz)
-
-        tczThread.start()
-        httzThread.start()
+        self.createHTTZ(tcz)
 
     def createHTTZ(self, tczParam):
         body = "Example of Content category TestCase content."
@@ -620,7 +601,6 @@ class HTTZee(object):
         self.tcz.run()
 
     def run(self):
-        if self.status_http:
             s = ""
             print "\t[HTTZ][run()] called TCZee.run(), entering infinite loop now."
             while ( s != "exit" ):
@@ -630,14 +610,6 @@ class HTTZee(object):
                 s = str( self.tcz.recv.get() )
                 print "\t[HTTZ][run()] Received data: " + s + "\n"
                 self.processRequest(s)
-        else:
-            s = ""
-            print "\t[Dummy HTTZ][run()] called TCZee.run(), entering no infinite loop now."
-            # TODO proper loop condition in Time category logic must be discussed 
-            # with group
-
-
-        
 
     def processRequest(self, req):
         # TODO  Here we will need the logic to parse the whole HTTP request
@@ -661,9 +633,6 @@ class HTTZee(object):
                 self.tcz.send_response()
 
         #return self.resources[req]
-
-    
-
 
 
 #TCZee.graph()
@@ -735,13 +704,36 @@ class Connector(Automaton):
             # status_http = 0 means dummy httz component used for time.
             # status_http = 1 means proper httz component used for content.
             if self.config['category']=='time':
-                self.status_http = 0
-            elif self.config['category']=='content':
-                self.status_http = 1
+                # Create TCZ Object
+                tcz = TCZee(self.config, pkt, debug=3)
 
-            tcz = TCZee(self.config, pkt, debug=3)
-            httz = HTTZee(tcz, self.status_http)
-            self.connections.append(httz)
+                # Prepare only the Thread for TCZ
+                tczThread = Thread(target=tcz.run)
+                tczThread.daemon = True
+
+                # Starting the TCZ Threads
+                tczThread.start()
+
+                # BD: Issue #17: Here the connection refer to only the TCZ 
+                # TCZ objection is added to the connection Queue
+                self.connections.append(tcz)
+            elif self.config['category']=='content':
+                # Create TCZ and HTTZ Objects
+                tcz = TCZee(self.config, pkt, debug=3)
+                httz = HTTZee(tcz)
+
+                # Prepare HTTZ Thread
+                httzThread = Thread(target=httz.run)
+                httzThread.daemon = True
+
+                # Prepare a separate thread for the TCZee run
+                tczThread = Thread(target=httz.connection)
+
+                # Starting the respective Threads
+                tczThread.start()
+                httzThread.start()
+
+                self.connections.append(httz)
             # TODO here we create a new instance of 
             # HTTZee (that contains a TCZee).
             #
