@@ -714,9 +714,6 @@ class Connector(Automaton):
                 # Starting the TCZ Threads
                 tczThread.start()
 
-                # BD: Issue #17: Here the connection refer to only the TCZ 
-                # TCZ objection is added to the connection Queue
-                self.connections.append(tcz)
             elif self.config['category']=='content':
                 # Create TCZ and HTTZ Objects
                 tcz = TCZee(self.config, pkt, debug=3)
@@ -733,7 +730,7 @@ class Connector(Automaton):
                 tczThread.start()
                 httzThread.start()
 
-                self.connections.append(httz)
+            self.connections.append(tcz)
             # TODO here we create a new instance of 
             # HTTZee (that contains a TCZee).
             #
