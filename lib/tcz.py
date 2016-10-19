@@ -363,8 +363,8 @@ class TCZee(Automaton):
         #   One issue: it seems like the last ACK from the 3-way HS is somehow
         #   considered here also while running, even if I would expect this to
         #   already be consumed at this point in time
-        
-        if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags == 0x11):
+        if('F' in flags(pkt[TCP].flags)):
+#        if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags == 0x11):
             # TODO  here we will put the transition to the state CLOSING 
             #   and the related action(CLOSING) will send the FIN/ACK and 
             #   keep track of the sequence and ack numbers correctly. Check 
@@ -400,7 +400,7 @@ class TCZee(Automaton):
                                            self.jsonConfig['state'],
                                            self.jsonConfig['parameter'])
             time.sleep(self.jsonConfig['parameter'])
-            self.send(self.last_packet)
+        self.send(self.last_packet)
 
     
     # Second condition based on split of ESTABLISHED receive data cases

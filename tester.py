@@ -39,8 +39,8 @@ class Tester(object):
 				print "[content] Test completed for %s"%(test_id)
 
 
-		else:
-			print "JSON Config file empty or no valid test category."
+			else:
+				print "JSON Config file empty or no valid test category."
             
 
 class ConfigExpert(object):
