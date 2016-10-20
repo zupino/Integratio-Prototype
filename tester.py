@@ -1,6 +1,7 @@
 from scapy.all import *
 from lib.tcz import TCZee
 from lib.tcz import HTTZee
+from lib.tcz import Connector
 from scapy.all import Automaton
 from functools import wraps
 
@@ -26,22 +27,20 @@ class Tester(object):
         is also part of Issue #5. '''
         for test_id, config in self.configRegistry.iteritems():
 
-		if( config != {} and config['category']=='time' ):
-			print "[time] Test started for %s"%(test_id)
-        	    	self.currentTest=TCZee(
-                	                   jsonConfig=config,
-                        	           debug=3)
-	            	self.currentTest.run()
-        	    	print "[time] Test completed for %s"%(test_id)
-		elif ( config != {} and config['category'] == 'content' ):
-			print "[content] Test started for %s"%(test_id)
-			t = TCZee(jsonConfig = config, debug = 3)
-			self.currentTest = HTTZee(t)
-			print "[content] Test completed for %s"%(test_id)
+			if( config != {} and config['category']=='time' ):
+				print "[content] Test started for %s"%(test_id)
+				self.currentTest = Connector(config, debug=3)
+				self.currentTest.run()
+				print "[content] Test completed for %s"%(test_id)
+			elif ( config != {} and config['category'] == 'content' ):
+				print "[content] Test started for %s"%(test_id)
+				self.currentTest = Connector(config, debug=3)
+				self.currentTest.run()
+				print "[content] Test completed for %s"%(test_id)
 
 
-		else:
-			print "JSON Config file empty or no valid test category."
+			else:
+				print "JSON Config file empty or no valid test category."
             
 
 class ConfigExpert(object):
