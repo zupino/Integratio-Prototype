@@ -250,6 +250,365 @@ class TCZee(Automaton):
                 #print   "\t[isRetr] pkt ack: " + str(pkt[TCP].ack) +\
                                 #        ", seq: " + str(pkt[TCP].seq) +\
                                 #        ", payload: \"" + str( pkt[TCP].payload ) + "\"\n"
+<<<<<<< HEAD
+				return True
+			else:
+				return False
+		
+
+	# Prepare the internal l3 packet before sending it
+	# based on received packet
+	def preparePkt(self, pkt, flag = 'A'):
+		if(TCP in pkt):
+
+                        # We are assuming this opertion is always called on 
+                        # a reception of a packet. There might be a better
+                        # place for this operation :)
+                        #
+                        # NOTE  marking STATEs as INTERCEPTED looks an interesting
+                        #       point, but I can only see how to do that from the 
+                        #       interctive console with t.STATE.intercepts() and not
+                        #       within the definition
+
+                        # TODO  There might be a problem in case of re-transmitted
+                        #       packets and self.curAck get incremented by 1 everytime
+                        #       a re-transmitted packet is received, and this is not 
+                        #       the expected behavior.
+			
+			# print "\n\tCurrent value for local ACK: " + str( self.curAck ) + "\n"
+			
+			self.l3[IP].dst = pkt[IP].src
+			self.dport = pkt[TCP].sport
+			self.l3[TCP].dport = self.dport 
+			self.l3[TCP].sport = pkt[TCP].dport
+
+			if((self.curSeq + self.curAck) == 0):
+				self.curAck = pkt[TCP].seq + 1
+				self.curSeq = 31331
+			else:
+				# To avoid increasing the ACK for re-transmitted packets
+				if( not self.isRetransmit(pkt) ):
+					print "\n\tPacket is no retransmitted\n"
+					if (Padding in pkt):
+						# Sometime (I think only in case a slow transmission is detected)
+						# for small payload ( lss than 4 byte) a null Padding is added.
+						# This might be due to the eth HW or TCZ stack, in any case we need
+						# to remove it to avoid miscalculation with the ACK number
+						pkt[Padding] = None
+						print "\n\tThere is Padding in this packet, so we remove it."
+
+					self.curAck += pkt[TCP].payload.__len__()
+					#print "\n\tTempDebug: pkt is different from self.lastReceived: \n\t" + \
+					#self.lastReceived.summary() + "\n\t" + \
+					#pkt.summary() + "\n\tpkt[TCP].payload.__len__(): " + \
+					#str( pkt[TCP].payload.__len__() ) + "\n\tpkt[TCP].payload: \"" + \
+					#str( pkt[TCP].payload ) + "\"\n\tself.curAck: " + \
+					#str(self.curAck) + "\n\t" + " just added " + str(pkt[TCP].payload.__len__()) + "to it.\n"
+				#else:
+					#print "\n\tThis is a re-transmitted packet.\n"
+					# pass
+
+			if(pkt[TCP].ack > self.curSeq):
+				self.curSeq = pkt[TCP].ack
+
+			self.l3[TCP].seq = self.curSeq
+			self.l3[TCP].ack = self.curAck
+
+			self.lastReceived = pkt.copy()
+
+	# BEGIN
+	@ATMT.state(initial=1)
+	def BEGIN(self):
+		self.l3 = IP()/TCP()
+		#self.lastHttpRequest = ""
+		raise  self.LISTEN()
+	
+	# LISTEN
+	@ATMT.state()
+	def LISTEN(self):
+		pass
+
+	@ATMT.receive_condition(LISTEN)
+	def receive_syn(self, pkt):
+		# Checking if what I got is a SYN
+		if (TCP in pkt and (pkt[TCP].flags == 0x02)):
+			self.preparePkt(pkt)
+			raise self.SYNACK_SENT()
+
+	@ATMT.action(receive_syn)
+	def send_synack(self):
+		self.l3[TCP].flags = 'SA'
+		self.last_packet = self.l3
+		if self.jsonConfig['category']=='time' and self.jsonConfig['state']=='LISTEN':
+			# This is added only for debug purposes
+			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
+									       self.jsonConfig['state'],
+									        self.jsonConfig['parameter'])
+			# time.sleep(self.jsonConfig['parameter'])
+		self.send(self.last_packet)
+
+
+	# SYNACK_SENT
+	@ATMT.state()
+	def SYNACK_SENT(self):
+		pass
+
+	@ATMT.receive_condition(SYNACK_SENT)
+	def receive_ackForSyn(self, pkt):
+		
+		# Check if I get an ACK (0x10)
+		# TODO 	A check on received pkt ACK and SEQ number would make sense,
+		#	to avoid any ACK to trigger this 
+		# 	condition
+		# -->	For the moment I add a check on the pkt source port, so basically
+		#	I am making the engine handling 1 TCP STREAM
+		#	per time, that is not necessarly a bad think.
+		#	This will avoid also that re-transmitted packet from other stream
+		#	to mess-up the status of the server
+
+		if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags & 0x10):
+			self.preparePkt(pkt)
+			
+			raise self.ESTABLISHED()
+
+	# Timeout: if I do not receive the ACK after 60 seconds sending the SYN ACK, then I go back to LISTEN
+	@ATMT.timeout(SYNACK_SENT, 60)
+	def timeoutSynAckSent(self): 
+		# We sent the SYN ACK but not received any ACK yet, timer expired --> back to LISTEN"
+		raise self.LISTEN()
+
+
+	@ATMT.state()
+	def ESTABLISHED(self):
+		pass
+
+	# Let's try to separate all these cases in separate conditions, 
+	# code should look better and TCZee.graph() would return a meaningful state chart diagram
+
+	# in ESTABLISHED recv() FIN/ACK
+	@ATMT.receive_condition(ESTABLISHED)
+	def receive_finAck(self, pkt):
+		# Check if the packet we got is a FIN/ACK 
+		# TODO 	Make sure that in case of passive close we 
+		# 	are expecting a FIN/ACK
+		# TODO 	It seems like if we make the & on 0x11, and ACK is enough to make it pass
+		# 	so we try to separate the checks on each flags. Check if this is true.
+		#	One issue: it seems like the last ACK from the 3-way HS is somehow
+		#	considered here also while running, even if I would expect this to
+		#	already be consumed at this point in time
+		
+		if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags == 0x11):
+			# TODO 	here we will put the transition to the state CLOSING 
+			# 	and the related action(CLOSING) will send the FIN/ACK and 
+			#	keep track of the sequence and ack numbers correctly. Check 
+			# 	also TCP state diagram
+			
+			# DEBUG
+			# Adjusting the seq and ack, in case of handshake and closing, there is an
+			# 
+			# To consider the case detailed in the comment of the send_response,
+			# I assign to the local SEQ the pkt[TCP].ack only if it is strictly 
+			# bigger than the current SEQ value.
+			self.preparePkt(pkt)
+			raise self.CLOSING()
+
+	# The action before transition to CLOSING is the send of FIN/ACK, that was before 
+	# part of the receive_finAck condition
+
+	@ATMT.action(receive_finAck)
+	def send_finAck(self):
+		self.l3[TCP].flags = 'FA'
+
+		# Usually we arrange seq and ack in the preparPkt() method,
+		# but in case of sending a SYN ACK as response to an active
+		# disconnection from the client, we need to add +1 to the ack
+		# even if the pkt[TCP].load.))len__() == 0                
+		
+		self.l3[TCP].ack += 1
+		self.last_packet = self.l3
+		if self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
+			# This is added only for debug purposes
+			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
+									       self.jsonConfig['state'],
+									       self.jsonConfig['parameter'])
+			# time.sleep(self.jsonConfig['parameter'])
+                self.send(self.last_packet)
+
+	
+	# Second condition based on split of ESTABLISHED receive data cases
+	# in ESTABLISHED recv() PSH/ACK
+	@ATMT.receive_condition(ESTABLISHED)
+	def receive_pshAck(self, pkt):
+
+		# check if the received packet is a PSH/ACK 0x18
+		# TODO 	EPIC this will need to consider also the case of HTTP requests splitted over
+		#	multiple TCP segments, for the moment we assume request fits in one segment.
+		#
+		#	NOTES: 	HTTP Request can be
+		#
+		#		- Without a body: The request is completed when 
+		#		  you have 2 consecutives new lines
+		#		  0x0A 0x0D 0x0A 0x0D (but we should gracefully consider also LR only			
+		#
+		#		- With a body: In this case, the request terminate
+		#			- when the number of char indicated in Content-length is reached
+		#			- according to the logic to handle the Chunked request
+		#
+		 
+		# TODO 	Assuming that the HTTP data will be always contained in a TCP segment flagged as
+		# httz	PSH/ACK, this is not necessarly true. In general all the data that arrives
+		#	should be copied in the recv buffer
+		
+		if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags == 0x18):
+			
+			# TODO 	As of now, we are just assuming that the content of the TCP load
+			#	is an HTTP request, this might be also something else in a more advanced version
+			#	but if we need to start from somewhere, that's for sure HTTP(S)
+			
+			# TODO	Adding here a check to verify if we are already processing the request just
+			#	received. Maybe we can go to another state (something like PROCESSING_REQUEST)
+			# 	to avoid that retransmission from the client mess-up the ACK counting. We clean 
+			# 	this buffer when timeout, because I might want to make 2 consecutive requests for
+			#	the same resource.
+
+			if pkt[TCP].load : #and (pkt[TCP].load != self.lastHttpRequest) : 
+		
+				# Adding the received load to the recv buffer
+				self.recv += pkt[TCP].load
+
+				# We consume the content of the TCP load
+				# by printing it, until we have an HTTZee to do something
+				# more meaningful with it
+				print "\n[TCP Payload] " + self.receive() 
+				print "\n"
+
+				self.preparePkt(pkt)
+	
+			# If received pkt has no load OR if the HTTP request is already received
+			# in this case I do nothing
+			# self.l3[TCP].seq = pkt[TCP].ack
+			
+			# Still in the assumption that whatever PSH/ACK TCP packet we receive from the client
+			# will actually contains an HTTP request. Also, I am assuming that all the sizes goes 
+			# automatically with Scapy magic
+			# TODO seems like sending the ACK for the request and the response in the same TCP segment
+			# is not ok, trying to send them separatelly
+			# self.l3[TCP] = httpResponse
+			
+			# ??? 	it is still not clear what is better in such a situation: put here the send() call
+			# 	or put it in the action related to this state? Question arises because based on
+			# 	content of the pkt I might need different actions triggered, 
+			#	without the change of state.
+			#	Does this even make sense?
+			#	I send here for the moment as I need to send the ACK but 
+			#	I do not need to change the state.
+			#	This is different to the previous if case, for example,
+			#	where also the state change.
+			#
+			# !!!	For the moment the best answer to this is that we should
+			#	have a different ATMT.receive_condition 
+			#	for each case of the if, and send the response packet in
+			#	the action of each condition.
+			#	From code execution point of view maybe no difference in
+			#	the 2 approaches, but thi separation
+			#	allow to generate automatically a much more clear state diagram with TCZee.graph()
+
+                	# self.l3 = self.l3/httpResponse
+			# self.responseReady = 1
+			# Just want to move the send() call into the related ATMT.action, just to keep 
+			# the code clean and according to state machine formalism
+
+				raise self.ESTABLISHED()
+
+	@ATMT.action(receive_pshAck)
+	def sendAck(self):
+		self.l3[TCP].flags = 'A'
+		self.last_packet = self.l3
+		if self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
+			# This is added only for debug purposes
+			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
+									       self.jsonConfig['state'],
+									       self.jsonConfig['parameter'])
+			# time.sleep(self.jsonConfig['parameter'])
+		self.send(self.last_packet)
+
+	# in ESTABLISHED recv() a SYN (basically client want to start a new tcp stream)
+	@ATMT.receive_condition(ESTABLISHED)	
+	def receive_synInEstablished(self, pkt):
+		# For this receive condition I do not check the source port, because if I get a SYN
+		# while in ESTABLISHED, it might be the client trying to open a new tcp strem
+		# TODO 	Check if in this multi tcp stream handling approach is correct or if we should
+		#	simply put a timer for the ESTABLISHED state and let the state
+		#	machine going back to LISTEN after sending the response
+		#	We should check the "Keep Alive" header...
+
+		if TCP in pkt and (pkt[TCP].flags == 0x02) :
+			self.preparePkt(pkt)
+			self.l3[TCP].seq = 0
+			self.l3[TCP].ack = pkt[TCP].seq + 1
+
+			# We have a new TCP stream!
+			self.l3[TCP].dport = pkt[TCP].sport
+			self.dport = pkt[TCP].sport
+
+			self.l3[TCP].payload = ""
+			raise self.SYNACK_SENT()
+
+	@ATMT.action(receive_synInEstablished)
+	def sendSyn_inEstablished(self):
+      		self.l3[TCP].flags = 'SA'
+                self.last_packet = self.l3
+                if self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
+			# This is added only for debug purposes
+			print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
+									       self.jsonConfig['state'],
+									       self.jsonConfig['parameter'])
+			# time.sleep(self.jsonConfig['parameter'])
+                self.send(self.last_packet)
+	
+	@ATMT.receive_condition(ESTABLISHED)
+	def receive_ackInEstablished(self, pkt):
+		if TCP in pkt and (0x10 == pkt[TCP].flags):
+			self.preparePkt(pkt)
+			raise self.ESTABLISHED()
+		else:
+			pass
+
+	@ATMT.state() # Final just for the moment to avoid the warning
+	def CLOSING(self):
+		#DEBUG 
+		#print "[DEBUG] entering [CLOSING]"
+		print ""
+			
+	@ATMT.receive_condition(CLOSING)
+	def receive_ack_closing(self, pkt):
+		# Instead of going back to LISTEN I go to the final state to have an exit condition
+		# for the state machine
+		
+		if (TCP in pkt and (pkt[TCP].flags == 0x10)):
+			raise self.END()
+		#else:
+		#	# something else received
+		#	# DEBUG
+		#	print "\t\t[DEBUG][CLOSING] We receive something that is not an ACK: " + pkt.summary()
+		#	pass
+	# After timeout in CLOSING, terminate (basically only one FIN from
+	# the client is enough to close connection
+	# TODO	THIS IS WRONG!
+	@ATMT.timeout(CLOSING, 5)
+	def timeoutClosing(self):
+		self.l3[TCP].ack = 0
+                self.l3[TCP].seq = 0
+                self.l3[TCP].payload = ""
+                self.last_packet = self.l3
+                raise self.LISTEN()
+
+	# This is simply a final state to have an exit condition
+	# once the TCP terminate connection is completed
+	@ATMT.state(final=1)
+	def END(self):
+		return "Exiting"
+=======
                 return True
             else:
                 return False
@@ -312,7 +671,12 @@ class TCZee(Automaton):
         self.l3 = IP()/TCP()
         self.preparePkt(self.initSYN)
         self.l3[TCP].flags = 'SA'
-
+        if self.jsonConfig != {} and self.jsonConfig['category']=='time' and self.jsonConfig['state']=='LISTEN':
+            # This is added only for debug purposes
+            print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
+                                           self.jsonConfig['state'],
+                                            self.jsonConfig['parameter'])
+            time.sleep(self.jsonConfig['parameter'])
         self.send(self.l3)
     
         raise  self.SYNACK_SENT()
@@ -389,7 +753,12 @@ class TCZee(Automaton):
         
         self.l3[TCP].ack += 1
         self.last_packet = self.l3
-
+        if self.jsonConfig != {} and self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
+            # This is added only for debug purposes
+            print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
+                                           self.jsonConfig['state'],
+                                           self.jsonConfig['parameter'])
+            time.sleep(self.jsonConfig['parameter'])
         self.send(self.last_packet)
 
     
@@ -484,7 +853,12 @@ class TCZee(Automaton):
     def sendAck(self):
         self.l3[TCP].flags = 'A'
         self.last_packet = self.l3
-
+        if self.jsonConfig != {} and self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
+            # This is added only for debug purposes
+            print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
+                                           self.jsonConfig['state'],
+                                           self.jsonConfig['parameter'])
+            time.sleep(self.jsonConfig['parameter'])
         self.send(self.last_packet)
 
     # in ESTABLISHED recv() a SYN (basically client want to start a new tcp stream)
@@ -582,16 +956,8 @@ class HTTZee(object):
             exit() 
 
     def connection(self):
-        try:
-            print "\t[HTTZ][connection()] Starting TCZee thread"
-            self.tcz.run()
-        except Automaton.InterceptionPoint,Pkt:
-            print "\t[HTTZ][connection()] Starting Interpted / restarted thread"
-            import pdb
-            pdb.set_trace()
-            print "from the runcomponent I am in %s, %s",(self.tcz.state.state, dir(self.tcz.state))
-            time.sleep(config['parameter'])
-            self.tcz.accept_packet(self.tcz.intercepted_packet)
+        print "\t[HTTZ][connection()] Starting TCZee thread"
+        self.tcz.run()
 
     def run(self):
             s = ""
@@ -627,11 +993,14 @@ class HTTZee(object):
 
         #return self.resources[req]
 
+>>>>>>> master
 
 #TCZee.graph()
 #t = TCZee(80, debug=3)
 #t.run()
 
+<<<<<<< HEAD
+=======
 class Connector(Automaton):
     def parse_args(self, jsonConfig={}, **kargs):
         Automaton.parse_args(self, **kargs)
@@ -699,12 +1068,6 @@ class Connector(Automaton):
             if self.config['category']=='time':
                 # Create TCZ Object
                 tcz = TCZee(self.config, pkt, debug=3)
-                print "\t\t\t\t[Connector][Rx_condition()] Adding the interception state to TCZ"
-
-                # Adding the config json's state to Interception points
-                import pdb
-                pdb.set_trace()
-                tcz.add_interception_points(tcz.states[self.config['state']])
 
                 # Prepare only the Thread for TCZ
                 tczThread = Thread(target=tcz.run)
@@ -730,9 +1093,6 @@ class Connector(Automaton):
                 httzThread.start()
 
             self.connections.append(tcz)
-
-
-
             # TODO here we create a new instance of 
             # HTTZee (that contains a TCZee).
             #
@@ -753,3 +1113,4 @@ class Connector(Automaton):
             
             
             
+>>>>>>> master

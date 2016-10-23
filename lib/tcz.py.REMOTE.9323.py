@@ -312,7 +312,12 @@ class TCZee(Automaton):
         self.l3 = IP()/TCP()
         self.preparePkt(self.initSYN)
         self.l3[TCP].flags = 'SA'
-
+        if self.jsonConfig != {} and self.jsonConfig['category']=='time' and self.jsonConfig['state']=='LISTEN':
+            # This is added only for debug purposes
+            print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
+                                           self.jsonConfig['state'],
+                                            self.jsonConfig['parameter'])
+            time.sleep(self.jsonConfig['parameter'])
         self.send(self.l3)
     
         raise  self.SYNACK_SENT()
@@ -389,7 +394,12 @@ class TCZee(Automaton):
         
         self.l3[TCP].ack += 1
         self.last_packet = self.l3
-
+        if self.jsonConfig != {} and self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
+            # This is added only for debug purposes
+            print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
+                                           self.jsonConfig['state'],
+                                           self.jsonConfig['parameter'])
+            time.sleep(self.jsonConfig['parameter'])
         self.send(self.last_packet)
 
     
@@ -484,7 +494,12 @@ class TCZee(Automaton):
     def sendAck(self):
         self.l3[TCP].flags = 'A'
         self.last_packet = self.l3
-
+        if self.jsonConfig != {} and self.jsonConfig['category']=='time' and self.jsonConfig['state']=='ESTABLISHED':
+            # This is added only for debug purposes
+            print "Sleep for state %s, category %s, parameter %d"%(self.jsonConfig['category'],
+                                           self.jsonConfig['state'],
+                                           self.jsonConfig['parameter'])
+            time.sleep(self.jsonConfig['parameter'])
         self.send(self.last_packet)
 
     # in ESTABLISHED recv() a SYN (basically client want to start a new tcp stream)
@@ -582,16 +597,8 @@ class HTTZee(object):
             exit() 
 
     def connection(self):
-        try:
-            print "\t[HTTZ][connection()] Starting TCZee thread"
-            self.tcz.run()
-        except Automaton.InterceptionPoint,Pkt:
-            print "\t[HTTZ][connection()] Starting Interpted / restarted thread"
-            import pdb
-            pdb.set_trace()
-            print "from the runcomponent I am in %s, %s",(self.tcz.state.state, dir(self.tcz.state))
-            time.sleep(config['parameter'])
-            self.tcz.accept_packet(self.tcz.intercepted_packet)
+        print "\t[HTTZ][connection()] Starting TCZee thread"
+        self.tcz.run()
 
     def run(self):
             s = ""
@@ -699,12 +706,6 @@ class Connector(Automaton):
             if self.config['category']=='time':
                 # Create TCZ Object
                 tcz = TCZee(self.config, pkt, debug=3)
-                print "\t\t\t\t[Connector][Rx_condition()] Adding the interception state to TCZ"
-
-                # Adding the config json's state to Interception points
-                import pdb
-                pdb.set_trace()
-                tcz.add_interception_points(tcz.states[self.config['state']])
 
                 # Prepare only the Thread for TCZ
                 tczThread = Thread(target=tcz.run)
@@ -730,9 +731,6 @@ class Connector(Automaton):
                 httzThread.start()
 
             self.connections.append(tcz)
-
-
-
             # TODO here we create a new instance of 
             # HTTZee (that contains a TCZee).
             #
