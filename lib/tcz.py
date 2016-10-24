@@ -120,6 +120,10 @@ class TCZee(Automaton):
         self.remotePort = self.initSYN[TCP].sport
         self.remoteAddr = self.initSYN[IP].src
 
+        # For some reason, self.l3 is not available at this point in time
+        #self.l3[TCP].sport = self.initSYN[TCP].dport
+        #self.l3[TCP].dport = self.initSYN[TCP].sport
+
         self.curAck = 0
         self.curSeq = 0
 
@@ -194,11 +198,11 @@ class TCZee(Automaton):
 
     # @ATMT.action(receive_pshAck)
     def send_response(self):
-
         if self.toSend.__len__() == 0:
             # nothing to send, pass over
             pass
         else:
+            self.l3[TCP].flags = 'A'
             # If we want to send less than 1024 B, we do that in a single packet
             if self.toSend.__len__() < 1024: 
                 self.l3[TCP].payload = self.toSend
@@ -250,6 +254,7 @@ class TCZee(Automaton):
                     self.last_packet = self.l3
                     self.send(self.last_packet)
                     self.curSeq += chunk.__len__()
+                    self.l3[TCP].payload = ""
                 self.toSend = ""
 
 
@@ -308,8 +313,8 @@ class TCZee(Automaton):
 
             self.l3[IP].dst = pkt[IP].src
             self.dport = pkt[TCP].sport
-            self.l3[TCP].dport = self.dport
-            self.l3[TCP].sport = pkt[TCP].dport
+            self.l3[TCP].dport = self.remotePort
+            self.l3[TCP].sport = self.localPort
 
             if((self.curSeq + self.curAck) == 0):
                 self.curAck = pkt[TCP].seq + 1
@@ -432,6 +437,13 @@ class TCZee(Automaton):
             time.sleep(self.jsonConfig['parameter'])
         self.send(self.last_packet)
 
+    # Receive RST while in ESTABLISHED
+    @ATMT.receive_condition(ESTABLISHED)
+    def receive_Rst(self, pkt):
+        if('R' in flags(pkt[TCP].flags)):
+            print "[DEBUG][ESTABLISHED] Received RST, ending TCZ"
+            raise self.END()
+
 
     # Second condition based on split of ESTABLISHED receive data cases
     # in ESTABLISHED recv() PSH/ACK
@@ -458,7 +470,8 @@ class TCZee(Automaton):
         # httz  PSH/ACK, this is not necessarly true. In general all the data that arrives
         #   should be copied in the recv buffer
 
-        if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags == 0x18):
+#        if TCP in pkt and (pkt[TCP].sport == self.dport) and (pkt[TCP].flags == 0x18):
+        if ( ('P' in flags(pkt[TCP].flags)) and ('A' in flags(pkt[TCP].flags)) ): 
 
             # TODO  As of now, we are just assuming that the content of the TCP load
             #   is an HTTP request, this might be also something else in a more advanced version
@@ -470,8 +483,9 @@ class TCZee(Automaton):
             #   this buffer when timeout, because I might want to make 2 consecutive requests for
             #   the same resource.
 
-            if pkt[TCP].load : #and (pkt[TCP].load != self.lastHttpRequest) :
-
+            if pkt[TCP].load and (not self.isRetransmit(pkt)) : #and (pkt[TCP].load != self.lastHttpRequest) :
+                print "\t\t[DEBUG][ESTABLISHED] Received a request, and not a duplicate"
+                self.preparePkt(pkt)
                 # Adding the received load to the recv buffer
                 self.recv.put( str( pkt[TCP].load ) )
 
@@ -481,7 +495,7 @@ class TCZee(Automaton):
                 #print "\n[TCP Payload] " + self.receive()
                 #print "\n"
 
-                self.preparePkt(pkt)
+                # self.preparePkt(pkt)
 
             # If received pkt has no load OR if the HTTP request is already received
             # in this case I do nothing
