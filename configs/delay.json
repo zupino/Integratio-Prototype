@@ -2,7 +2,7 @@
 	"testID" : "Delay02",
 	"category" : "time",
 	"state" :"LISTEN",
-	"parameter" : 0,
+	"parameter" : 6,
 	"listeningPort" : 80,
 	"listeningAddress" : "testing.com"	
 

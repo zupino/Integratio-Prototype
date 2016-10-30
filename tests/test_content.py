@@ -18,7 +18,7 @@ def makeRequest():
     con.runbg()
 
 
-    r = requests.get('http://192.168.13.1/500', timeout=4)
+    r = requests.get('http://192.168.13.1/500', timeout=2)
     yield r
     r.close()
     con.stop()

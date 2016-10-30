@@ -25,7 +25,7 @@ def runConnector():
 #        con.run()
 
 def test_delay(runConnector):
-#    with pytest.raises(requests.exceptions.Timeout):
-        r = requests.get('http://192.168.13.1/500', timeout=5)
-        assert 0
+    with pytest.raises(requests.exceptions.Timeout):
+        r = requests.get('http://192.168.13.1', timeout=2)
+#        assert 0
         
