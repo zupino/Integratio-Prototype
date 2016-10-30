@@ -255,6 +255,22 @@ class TCZee(Automaton):
                 return False
         
 
+    def run ( self ):
+        while True:
+            try:
+                print "---------------------in normal tcz mode---------------------------"
+
+                x = super(TCZee,self).run()
+            except Automaton.InterceptionPoint,p:
+                import pdb
+                pdb.set_trace()
+                super(TCZee,self).accept_packet(Raw(p.packet.load.lower()))
+                print " ------------------ In Intercept tcz mode-------------------------"
+            else:
+                break
+
+        
+
     # Prepare the internal l3 packet before sending it
     # based on received packet
     def preparePkt(self, pkt, flag = 'A'):
@@ -582,16 +598,7 @@ class HTTZee(object):
             exit() 
 
     def connection(self):
-        try:
-            print "\t[HTTZ][connection()] Starting TCZee thread"
-            self.tcz.run()
-        except Automaton.InterceptionPoint,Pkt:
-            print "\t[HTTZ][connection()] Starting Interpted / restarted thread"
-            import pdb
-            pdb.set_trace()
-            print "from the runcomponent I am in %s, %s",(self.tcz.state.state, dir(self.tcz.state))
-            time.sleep(config['parameter'])
-            self.tcz.accept_packet(self.tcz.intercepted_packet)
+        self.tcz.run()
 
     def run(self):
             s = ""
@@ -700,10 +707,8 @@ class Connector(Automaton):
                 # Create TCZ Object
                 tcz = TCZee(self.config, pkt, debug=3)
                 print "\t\t\t\t[Connector][Rx_condition()] Adding the interception state to TCZ"
-
+                print tcz.states[self.config['state']]
                 # Adding the config json's state to Interception points
-                import pdb
-                pdb.set_trace()
                 tcz.add_interception_points(tcz.states[self.config['state']])
 
                 # Prepare only the Thread for TCZ
