@@ -66,6 +66,8 @@ import socket
 import fcntl
 import struct
 
+import inspect
+
 from Queue import Queue
 from threading import Thread
 
@@ -187,6 +189,18 @@ class TCZee(Automaton):
         
     # but a simple method that should be explicitly called
         # for example by the external httz component
+    
+
+    # [feature/action-override] Trying to override send method to check
+    # for current action and include the time delay
+    def send(self, pkt):
+        curframe = inspect.currentframe()
+        calframe = inspect.getouterframes(curframe, 2)
+        print "\t\t[NEW DEBUG] Caller frame: ", calframe[1][3]
+        super(TCZee, self).send(pkt)
+
+
+
 
     # @ATMT.action(receive_pshAck)
     def send_response(self):
